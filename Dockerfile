@@ -25,5 +25,5 @@ RUN ./mvnw clean package -DskipTests
 # Expose port
 EXPOSE 8080
 
-# Run the application
-CMD ["java", "-jar", "target/tire_management-0.0.1-SNAPSHOT.jar"]
+# Run the application with container-friendly JVM options
+CMD ["java", "-Djava.security.egd=file:/dev/./urandom", "-Dspring.profiles.active=production", "-jar", "target/tire_management-0.0.1-SNAPSHOT.jar"]
