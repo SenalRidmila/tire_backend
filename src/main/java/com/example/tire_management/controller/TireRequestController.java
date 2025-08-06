@@ -5,6 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -225,17 +226,13 @@ public class TireRequestController {
         List<String> photoUrls = new ArrayList<>();
 
         if (files != null && !files.isEmpty()) {
-            Path uploadPath = Paths.get("uploads");
-            if (!Files.exists(uploadPath)) {
-                Files.createDirectories(uploadPath);
-            }
-
             for (MultipartFile file : files) {
                 if (file != null && !file.isEmpty()) {
-                    String fileName = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
-                    Path filePath = uploadPath.resolve(fileName);
-                    Files.copy(file.getInputStream(), filePath);
-                    photoUrls.add("/uploads/" + fileName);
+                    // Convert to Base64 for database storage (temporary solution)
+                    byte[] fileBytes = file.getBytes();
+                    String base64Image = Base64.getEncoder().encodeToString(fileBytes);
+                    String dataUrl = "data:" + file.getContentType() + ";base64," + base64Image;
+                    photoUrls.add(dataUrl);
                 }
             }
         }
