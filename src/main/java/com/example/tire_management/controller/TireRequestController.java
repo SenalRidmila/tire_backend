@@ -33,7 +33,9 @@ import com.example.tire_management.service.TireRequestService;
 
 @CrossOrigin(origins = {
     "http://localhost:3000",
-    "http://localhost:3001"
+    "http://localhost:3001",
+    "https://tire-frontend.vercel.app",
+    "https://tire-frontend-git-main-senalridmila2-6843s-projects.vercel.app"
 })
 @RestController
 @RequestMapping("/api/tire-requests")

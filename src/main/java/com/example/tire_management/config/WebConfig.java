@@ -14,7 +14,8 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addMapping("/api/**") // restrict to your API routes only
                 .allowedOrigins(
                     "http://localhost:3001", // React frontend (development)
-                    "https://tire-frontend.vercel.app" // Vercel frontend (production)
+                    "https://tire-frontend.vercel.app", // Vercel frontend (production)
+                    "https://tire-frontend-git-main-senalridmila2-6843s-projects.vercel.app" // New Vercel URL
                 )
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
