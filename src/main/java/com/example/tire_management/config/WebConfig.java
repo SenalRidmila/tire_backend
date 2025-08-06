@@ -12,7 +12,10 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(@NonNull CorsRegistry registry) {
         registry.addMapping("/api/**") // restrict to your API routes only
-                .allowedOrigins("http://localhost:3001") // React frontend
+                .allowedOrigins(
+                    "http://localhost:3001", // React frontend (development)
+                    "https://tire-frontend.vercel.app" // Vercel frontend (production)
+                )
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true); // allow cookies if needed
