@@ -123,7 +123,7 @@ public class EmailService {
 
             Context context = new Context();
             context.setVariable("requestId", request.getId());
-            context.setVariable("orderLink", "http://localhost:3001/order-tires/" + request.getId());
+            context.setVariable("orderLink", "https://tire-frontend.vercel.app/order-tires/" + request.getId());
 
             String htmlContent = templateEngine.process("email/order-link-notification", context);
             helper.setText(htmlContent, true);
@@ -166,7 +166,7 @@ public class EmailService {
             Context context = new Context();
             context.setVariable("requestId", request.getId());
             context.setVariable("request", request);
-            context.setVariable("reviewUrl", "http://localhost:3001/manager?requestId=" + request.getId());
+            context.setVariable("reviewUrl", "https://tire-frontend.vercel.app/manager?requestId=" + request.getId());
 
             // Process the template
             String emailContent = templateEngine.process("email/request-notification", context);
@@ -194,7 +194,7 @@ public class EmailService {
             Context context = new Context();
             context.setVariable("requestId", request.getId());
             context.setVariable("request", request);
-            context.setVariable("ttoDashboardUrl", "http://localhost:3001/tto");
+            context.setVariable("ttoDashboardUrl", "https://tire-frontend.vercel.app/tto");
 
             // Process the template
             String emailContent = templateEngine.process("email/tto-approval-notification", context);
