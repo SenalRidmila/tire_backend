@@ -40,9 +40,8 @@ import com.example.tire_management.service.TireRequestService;
     "http://localhost:3001",
     "https://tire-frontend.vercel.app",
     "https://tire-frontend-git-main-senalridmila2-6843s-projects.vercel.app",
-    "https://tire-frontend-vercel.app",
-    "*"
-})
+    "https://tire-frontend-vercel.app"
+}, allowCredentials = "false")
 @RestController
 @RequestMapping("/api/tire-requests")
 public class TireRequestController {
@@ -81,7 +80,7 @@ public class TireRequestController {
     // Manager dashboard – show Pending + already approved by manager (if you need)
     @GetMapping("/manager/requests")
     public List<TireRequest> getRequestsForManager() {
-        List<TireRequest> requests = tireRequestService.getRequestsByStatuses(List.of("PENDING", "MANAGER_APPROVED", "APPROVED"));
+        List<TireRequest> requests = tireRequestService.getRequestsByStatuses(List.of("pending", "PENDING", "MANAGER_APPROVED", "APPROVED"));
         
         // Ensure photos are properly consolidated for each request
         for (TireRequest request : requests) {
@@ -96,7 +95,7 @@ public class TireRequestController {
     @GetMapping("/tto/requests")
     public List<TireRequest> getRequestsForTTO() {
         List<TireRequest> requests = tireRequestService.getRequestsByStatuses(
-                List.of("APPROVED", "MANAGER_APPROVED", "TTO_APPROVED", "TTO_REJECTED", "ENGINEER_APPROVED", "ENGINEER_REJECTED")
+                List.of("APPROVED", "MANAGER_APPROVED", "TTO_APPROVED", "TTO_REJECTED", "ENGINEER_APPROVED", "ENGINEER_REJECTED", "approved", "pending")
         );
         
         // Ensure photos are properly consolidated for each request
@@ -175,7 +174,7 @@ public class TireRequestController {
             request.setOfficerServiceNo(officerName);
             request.setemail(email);
             request.setReplacementDate(new Date().toString());
-            request.setStatus("PENDING");
+            request.setStatus("pending");
 
             // Handle photo uploads
             List<String> photoUrls = new ArrayList<>();
@@ -476,6 +475,42 @@ public class TireRequestController {
             return ResponseEntity.ok(debugInfo);
         } catch (Exception e) {
             logger.error("Error in debug photos endpoint: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // Debug endpoint to check status distribution
+    @GetMapping("/debug/status")
+    public ResponseEntity<Map<String, Object>> debugStatus() {
+        try {
+            List<TireRequest> allRequests = tireRequestService.getAllTireRequests();
+            
+            Map<String, Object> debugInfo = new HashMap<>();
+            debugInfo.put("totalRequests", allRequests.size());
+            
+            // Count requests by status
+            Map<String, Integer> statusCounts = new HashMap<>();
+            List<Map<String, Object>> requestDetails = new ArrayList<>();
+            
+            for (TireRequest request : allRequests) {
+                String status = request.getStatus();
+                statusCounts.put(status, statusCounts.getOrDefault(status, 0) + 1);
+                
+                Map<String, Object> requestInfo = new HashMap<>();
+                requestInfo.put("id", request.getId());
+                requestInfo.put("status", status);
+                requestInfo.put("vehicleModel", request.getVehicleModel());
+                requestInfo.put("vehicleNo", request.getVehicleNo());
+                requestDetails.add(requestInfo);
+            }
+            
+            debugInfo.put("statusCounts", statusCounts);
+            debugInfo.put("requestDetails", requestDetails);
+            
+            return ResponseEntity.ok(debugInfo);
+        } catch (Exception e) {
+            logger.error("Error in debug status endpoint: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", e.getMessage()));
         }
