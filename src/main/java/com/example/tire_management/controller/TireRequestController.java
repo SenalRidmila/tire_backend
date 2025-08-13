@@ -10,6 +10,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -40,6 +42,8 @@ import com.example.tire_management.service.TireRequestService;
 @RestController
 @RequestMapping("/api/tire-requests")
 public class TireRequestController {
+
+    private static final Logger logger = LoggerFactory.getLogger(TireRequestController.class);
 
     @Autowired
     private TireRequestService tireRequestService;
@@ -245,7 +249,7 @@ public class TireRequestController {
     @GetMapping("/{id}/photos")
     public ResponseEntity<List<String>> getTireRequestPhotos(@PathVariable String id) {
         try {
-            TireRequest request = tireRequestService.getTireRequestById(id);
+            TireRequest request = tireRequestService.getTireRequestById(id).orElse(null);
             if (request != null && request.getPhotoUrls() != null) {
                 return ResponseEntity.ok(request.getPhotoUrls());
             } else {

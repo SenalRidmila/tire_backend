@@ -2,6 +2,8 @@ package com.example.tire_management.controller;
 
 import com.example.tire_management.model.TireRequest;
 import com.example.tire_management.service.TireRequestService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +18,8 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/tire-requests")
 public class TireRequestController {
+
+    private static final Logger logger = LoggerFactory.getLogger(TireRequestController.class);
 
     @Autowired
     private TireRequestService tireRequestService;
@@ -39,16 +43,16 @@ public class TireRequestController {
         try {
             TireRequest request = new TireRequest();
             request.setVehicleModel(vehicleModel);
-            request.setSection(section);
+            request.setUserSection(section);
             request.setTireSize(tireSize);
-            request.setNumberOfTires(numberOfTires);
-            request.setNumberOfTubes(numberOfTubes);
-            request.setPresentKm(presentKm);
-            request.setPreviousKm(previousKm);
+            request.setNoOfTires(String.valueOf(numberOfTires));
+            request.setNoOfTubes(String.valueOf(numberOfTubes));
+            request.setPresentKm(String.valueOf(presentKm));
+            request.setPreviousKm(String.valueOf(previousKm));
             request.setWearPattern(wearPattern);
-            request.setOfficerName(officerName);
-            request.setEmail(email);
-            request.setRequestDate(new Date().toString());
+            request.setOfficerServiceNo(officerName);
+            request.setemail(email);
+            request.setReplacementDate(new Date().toString());
             request.setStatus("PENDING");
 
             // Handle photo uploads
