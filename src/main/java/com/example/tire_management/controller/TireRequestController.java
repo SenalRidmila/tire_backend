@@ -241,4 +241,19 @@ public class TireRequestController {
 
         return photoUrls;
     }
+
+    @GetMapping("/{id}/photos")
+    public ResponseEntity<List<String>> getTireRequestPhotos(@PathVariable String id) {
+        try {
+            TireRequest request = tireRequestService.getTireRequestById(id);
+            if (request != null && request.getPhotoUrls() != null) {
+                return ResponseEntity.ok(request.getPhotoUrls());
+            } else {
+                return ResponseEntity.ok(new ArrayList<>());
+            }
+        } catch (Exception e) {
+            logger.error("Error getting photos for request {}: {}", id, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ArrayList<>());
+        }
+    }
 }

@@ -30,6 +30,7 @@ public class TireRequest {
     private String email;               // Email field included
     private String comments;
     private List<String> tirePhotoUrls;    // Multiple photo URLs support
+    private List<String> photoUrls;
 
     private String status = "pending";          // Default status
     private String rejectionReason;
@@ -198,6 +199,14 @@ public class TireRequest {
 
     public void setTirePhotoUrls(List<String> tirePhotoUrls) {
         this.tirePhotoUrls = tirePhotoUrls;
+    }
+
+    public List<String> getPhotoUrls() {
+        return photoUrls;
+    }
+
+    public void setPhotoUrls(List<String> photoUrls) {
+        this.photoUrls = photoUrls;
     }
 
     public String getStatus() {
