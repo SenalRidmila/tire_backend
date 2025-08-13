@@ -267,6 +267,7 @@ public class TireRequestService {
     public Map<String, Object> findEmployeeByEmailAndPassword(String email, String password) {
         try {
             Query query = new Query(Criteria.where("email").is(email).and("password").is(password));
+            @SuppressWarnings("unchecked")
             Map<String, Object> employee = mongoTemplate.findOne(query, Map.class, "employees");
             return employee;
         } catch (Exception e) {
@@ -278,51 +279,11 @@ public class TireRequestService {
     public Map<String, Object> findEmployeeByEmail(String email) {
         try {
             Query query = new Query(Criteria.where("email").is(email));
+            @SuppressWarnings("unchecked")
             Map<String, Object> employee = mongoTemplate.findOne(query, Map.class, "employees");
             return employee;
         } catch (Exception e) {
             logger.error("Error finding employee by email: {}", e.getMessage(), e);
-            return null;
-        }
-    }
-
-    public List<Map<String, Object>> getAllEmployees() {
-        try {
-            Query query = new Query();
-            query.limit(10); // Limit to first 10 employees for safety
-            List<Map<String, Object>> employees = mongoTemplate.find(query, Map.class, "employees");
-            return employees;
-        } catch (Exception e) {
-            logger.error("Error finding all employees: {}", e.getMessage(), e);
-            return new ArrayList<>();
-        }
-    }
-
-    public Set<String> getCollectionNames() {
-        try {
-            return mongoTemplate.getCollectionNames();
-        } catch (Exception e) {
-            logger.error("Error getting collection names: {}", e.getMessage(), e);
-            return Set.of();
-        }
-    }
-
-    public long getEmployeeCount() {
-        try {
-            return mongoTemplate.getCollection("employees").countDocuments();
-        } catch (Exception e) {
-            logger.error("Error getting employee count: {}", e.getMessage(), e);
-            return 0;
-        }
-    }
-
-    public Map<String, Object> getFirstEmployee() {
-        try {
-            Query query = new Query();
-            query.limit(1);
-            return mongoTemplate.findOne(query, Map.class, "employees");
-        } catch (Exception e) {
-            logger.error("Error getting first employee: {}", e.getMessage(), e);
             return null;
         }
     }

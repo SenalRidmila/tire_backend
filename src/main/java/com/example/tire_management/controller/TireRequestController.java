@@ -40,13 +40,7 @@ import com.example.tire_management.service.TireRequestService;
 // import com.example.tire_management.model.Employee;
 // import com.example.tire_management.service.EmployeeService;
 
-@CrossOrigin(origins = {
-    "http://localhost:3000",
-    "http://localhost:3001",
-    "https://tire-frontend.vercel.app",
-    "https://tire-frontend-git-main-senalridmila2-6843s-projects.vercel.app",
-    "https://tire-frontend-vercel.app"
-}, allowCredentials = "false")
+@CrossOrigin(origins = "*")
 @RestController
 @RequestMapping("/api/tire-requests")
 public class TireRequestController {
@@ -322,49 +316,6 @@ public class TireRequestController {
     public ResponseEntity<?> engineerReject(@PathVariable String id) {
         tireRequestService.rejectByEngineer(id);
         return ResponseEntity.ok().build();
-    }
-
-    // ----------------- Debug Endpoints -----------------
-    @GetMapping("/debug/employees")
-    public ResponseEntity<?> debugEmployees() {
-        try {
-            Map<String, Object> testEmployee = tireRequestService.findEmployeeByEmail("chalanikasuhalya417@gmail.com");
-            if (testEmployee != null) {
-                // Remove password for security
-                testEmployee.remove("password");
-                return ResponseEntity.ok(Map.of("found", true, "employee", testEmployee));
-            } else {
-                return ResponseEntity.ok(Map.of("found", false, "message", "Employee not found"));
-            }
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
-        }
-    }
-
-    @GetMapping("/debug/all-employees")
-    public ResponseEntity<?> debugAllEmployees() {
-        try {
-            List<Map<String, Object>> allEmployees = tireRequestService.getAllEmployees();
-            // Remove passwords for security
-            allEmployees.forEach(emp -> emp.remove("password"));
-            return ResponseEntity.ok(Map.of("count", allEmployees.size(), "employees", allEmployees));
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", e.getMessage(), "type", e.getClass().getSimpleName()));
-        }
-    }
-
-    @GetMapping("/debug/employee-count")
-    public ResponseEntity<?> debugEmployeeCount() {
-        try {
-            long count = tireRequestService.getEmployeeCount();
-            Map<String, Object> firstEmployee = tireRequestService.getFirstEmployee();
-            if (firstEmployee != null) {
-                firstEmployee.remove("password"); // Remove password for security
-            }
-            return ResponseEntity.ok(Map.of("employeeCount", count, "firstEmployee", firstEmployee));
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", e.getMessage(), "type", e.getClass().getSimpleName()));
-        }
     }
 
     // ----------------- Authentication Endpoints -----------------
