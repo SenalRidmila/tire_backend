@@ -10,6 +10,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import org.slf4j.Logger;
@@ -34,6 +35,10 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.example.tire_management.model.TireRequest;
 import com.example.tire_management.service.TireRequestService;
+
+// Add Employee model import (we'll need to create this)
+// import com.example.tire_management.model.Employee;
+// import com.example.tire_management.service.EmployeeService;
 
 @CrossOrigin(origins = {
     "http://localhost:3000",
@@ -319,6 +324,102 @@ public class TireRequestController {
         return ResponseEntity.ok().build();
     }
 
+    // ----------------- Debug Endpoints -----------------
+    @GetMapping("/debug/employees")
+    public ResponseEntity<?> debugEmployees() {
+        try {
+            Map<String, Object> testEmployee = tireRequestService.findEmployeeByEmail("chalanikasuhalya417@gmail.com");
+            if (testEmployee != null) {
+                // Remove password for security
+                testEmployee.remove("password");
+                return ResponseEntity.ok(Map.of("found", true, "employee", testEmployee));
+            } else {
+                return ResponseEntity.ok(Map.of("found", false, "message", "Employee not found"));
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/debug/all-employees")
+    public ResponseEntity<?> debugAllEmployees() {
+        try {
+            List<Map<String, Object>> allEmployees = tireRequestService.getAllEmployees();
+            // Remove passwords for security
+            allEmployees.forEach(emp -> emp.remove("password"));
+            return ResponseEntity.ok(Map.of("count", allEmployees.size(), "employees", allEmployees));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage(), "type", e.getClass().getSimpleName()));
+        }
+    }
+
+    @GetMapping("/debug/employee-count")
+    public ResponseEntity<?> debugEmployeeCount() {
+        try {
+            long count = tireRequestService.getEmployeeCount();
+            Map<String, Object> firstEmployee = tireRequestService.getFirstEmployee();
+            if (firstEmployee != null) {
+                firstEmployee.remove("password"); // Remove password for security
+            }
+            return ResponseEntity.ok(Map.of("employeeCount", count, "firstEmployee", firstEmployee));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage(), "type", e.getClass().getSimpleName()));
+        }
+    }
+
+    // ----------------- Authentication Endpoints -----------------
+    @PostMapping("/auth/login")
+    public ResponseEntity<Map<String, Object>> login(@RequestBody Map<String, String> loginRequest) {
+        try {
+            String email = loginRequest.get("email");
+            String password = loginRequest.get("password");
+            
+            if (email == null || password == null) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("success", false, "message", "Email and password are required"));
+            }
+            
+            // Use the tire request service to find employee by email
+            // For now, we'll use a simple authentication check
+            Map<String, Object> authResult = authenticateEmployee(email, password);
+            
+            if ((Boolean) authResult.get("success")) {
+                logger.info("Successful login for email: {}", email);
+                return ResponseEntity.ok(authResult);
+            } else {
+                logger.warn("Failed login attempt for email: {}", email);
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(authResult);
+            }
+            
+        } catch (Exception e) {
+            logger.error("Error during login: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", "Internal server error"));
+        }
+    }
+
+    @PostMapping("/auth/logout")
+    public ResponseEntity<Map<String, Object>> logout() {
+        // Simple logout endpoint
+        return ResponseEntity.ok(Map.of("success", true, "message", "Logged out successfully"));
+    }
+
+    @GetMapping("/auth/profile")
+    public ResponseEntity<Map<String, Object>> getProfile(@RequestParam String email) {
+        try {
+            Map<String, Object> profile = getEmployeeProfile(email);
+            if (profile != null) {
+                return ResponseEntity.ok(profile);
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            logger.error("Error getting profile for email {}: {}", email, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Internal server error"));
+        }
+    }
+
     private TireRequest buildTireRequestFromParams(Map<String, String> params) {
         TireRequest request = new TireRequest();
         request.setVehicleNo(params.getOrDefault("vehicleNo", ""));
@@ -545,5 +646,63 @@ public class TireRequestController {
         if (!allPhotos.isEmpty()) {
             logger.debug("Consolidated {} photos for request {}", allPhotos.size(), request.getId());
         }
+    }
+
+    /**
+     * Helper method to authenticate employee using MongoDB employees collection
+     */
+    private Map<String, Object> authenticateEmployee(String email, String password) {
+        try {
+            // Use the service to authenticate against employees collection
+            Map<String, Object> employee = tireRequestService.findEmployeeByEmailAndPassword(email, password);
+            
+            if (employee != null) {
+                // Remove password from response for security
+                employee.remove("password");
+                
+                return Map.of(
+                    "success", true,
+                    "message", "Login successful",
+                    "user", employee,
+                    "token", generateSimpleToken(email) // Simple token generation
+                );
+            } else {
+                return Map.of(
+                    "success", false,
+                    "message", "Invalid email or password"
+                );
+            }
+        } catch (Exception e) {
+            logger.error("Error authenticating employee: {}", e.getMessage());
+            return Map.of(
+                "success", false,
+                "message", "Authentication error"
+            );
+        }
+    }
+
+    /**
+     * Helper method to get employee profile
+     */
+    private Map<String, Object> getEmployeeProfile(String email) {
+        try {
+            Map<String, Object> employee = tireRequestService.findEmployeeByEmail(email);
+            if (employee != null) {
+                // Remove password from response
+                employee.remove("password");
+                return employee;
+            }
+            return null;
+        } catch (Exception e) {
+            logger.error("Error getting employee profile: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Simple token generation (in production, use JWT or similar)
+     */
+    private String generateSimpleToken(String email) {
+        return Base64.getEncoder().encodeToString((email + ":" + System.currentTimeMillis()).getBytes());
     }
 }

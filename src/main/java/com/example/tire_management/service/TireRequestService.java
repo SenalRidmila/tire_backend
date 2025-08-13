@@ -2,15 +2,21 @@ package com.example.tire_management.service;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 
 import com.example.tire_management.model.TireRequest;
@@ -32,6 +38,9 @@ public class TireRequestService {
 
     @Autowired
     private EmailService emailService;
+
+    @Autowired
+    private MongoTemplate mongoTemplate;
 
     @Value("${manager.email}")
     private String managerEmail;
@@ -251,6 +260,70 @@ public class TireRequestService {
         } catch (Exception e) {
             logger.error("Unexpected error in TTO approval process for request {}: {}", id, e.getMessage(), e);
             throw e;
+        }
+    }
+
+    // Employee authentication methods
+    public Map<String, Object> findEmployeeByEmailAndPassword(String email, String password) {
+        try {
+            Query query = new Query(Criteria.where("email").is(email).and("password").is(password));
+            Map<String, Object> employee = mongoTemplate.findOne(query, Map.class, "employees");
+            return employee;
+        } catch (Exception e) {
+            logger.error("Error finding employee by email and password: {}", e.getMessage(), e);
+            return null;
+        }
+    }
+
+    public Map<String, Object> findEmployeeByEmail(String email) {
+        try {
+            Query query = new Query(Criteria.where("email").is(email));
+            Map<String, Object> employee = mongoTemplate.findOne(query, Map.class, "employees");
+            return employee;
+        } catch (Exception e) {
+            logger.error("Error finding employee by email: {}", e.getMessage(), e);
+            return null;
+        }
+    }
+
+    public List<Map<String, Object>> getAllEmployees() {
+        try {
+            Query query = new Query();
+            query.limit(10); // Limit to first 10 employees for safety
+            List<Map<String, Object>> employees = mongoTemplate.find(query, Map.class, "employees");
+            return employees;
+        } catch (Exception e) {
+            logger.error("Error finding all employees: {}", e.getMessage(), e);
+            return new ArrayList<>();
+        }
+    }
+
+    public Set<String> getCollectionNames() {
+        try {
+            return mongoTemplate.getCollectionNames();
+        } catch (Exception e) {
+            logger.error("Error getting collection names: {}", e.getMessage(), e);
+            return Set.of();
+        }
+    }
+
+    public long getEmployeeCount() {
+        try {
+            return mongoTemplate.getCollection("employees").countDocuments();
+        } catch (Exception e) {
+            logger.error("Error getting employee count: {}", e.getMessage(), e);
+            return 0;
+        }
+    }
+
+    public Map<String, Object> getFirstEmployee() {
+        try {
+            Query query = new Query();
+            query.limit(1);
+            return mongoTemplate.findOne(query, Map.class, "employees");
+        } catch (Exception e) {
+            logger.error("Error getting first employee: {}", e.getMessage(), e);
+            return null;
         }
     }
 
