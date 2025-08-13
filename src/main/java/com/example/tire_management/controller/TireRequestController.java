@@ -52,13 +52,24 @@ public class TireRequestController {
     // ----------------- Common GETs -----------------
     @GetMapping
     public List<TireRequest> getAllTireRequests() {
-        return tireRequestService.getAllTireRequests();
+        List<TireRequest> requests = tireRequestService.getAllTireRequests();
+        
+        // Ensure photos are properly consolidated for each request
+        for (TireRequest request : requests) {
+            consolidatePhotos(request);
+        }
+        
+        logger.info("Retrieved {} tire requests with consolidated photos", requests.size());
+        return requests;
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<TireRequest> getTireRequestById(@PathVariable String id) {
         return tireRequestService.getTireRequestById(id)
-                .map(ResponseEntity::ok)
+                .map(request -> {
+                    consolidatePhotos(request);
+                    return ResponseEntity.ok(request);
+                })
                 .orElse(ResponseEntity.notFound().build());
     }
     
@@ -67,25 +78,45 @@ public class TireRequestController {
     // Manager dashboard – show Pending + already approved by manager (if you need)
     @GetMapping("/manager/requests")
     public List<TireRequest> getRequestsForManager() {
-        return tireRequestService.getRequestsByStatuses(List.of("PENDING", "MANAGER_APPROVED", "APPROVED"));
+        List<TireRequest> requests = tireRequestService.getRequestsByStatuses(List.of("PENDING", "MANAGER_APPROVED", "APPROVED"));
+        
+        // Ensure photos are properly consolidated for each request
+        for (TireRequest request : requests) {
+            consolidatePhotos(request);
+        }
+        
+        logger.info("Retrieved {} manager requests with consolidated photos", requests.size());
+        return requests;
     }
 
     // TTO dashboard – DO NOT hide after TTO action; show all relevant
     @GetMapping("/tto/requests")
     public List<TireRequest> getRequestsForTTO() {
-        return tireRequestService.getRequestsByStatuses(
+        List<TireRequest> requests = tireRequestService.getRequestsByStatuses(
                 List.of("APPROVED", "MANAGER_APPROVED", "TTO_APPROVED", "TTO_REJECTED", "ENGINEER_APPROVED", "ENGINEER_REJECTED")
         );
+        
+        // Ensure photos are properly consolidated for each request
+        for (TireRequest request : requests) {
+            consolidatePhotos(request);
+        }
+        
+        logger.info("Retrieved {} TTO requests with consolidated photos", requests.size());
+        return requests;
     }
-
-
-
 
     // Engineer dashboard – if engineers only see TTO approved ones
     @GetMapping("/engineer/requests")
     public List<TireRequest> getRequestsForEngineer() {
-        // Return all requests with status TTO_APPROVED, ENGINEER_APPROVED, ENGINEER_REJECTED
-        return tireRequestService.getRequestsByStatuses(List.of("TTO_APPROVED", "ENGINEER_APPROVED", "ENGINEER_REJECTED"));
+        List<TireRequest> requests = tireRequestService.getRequestsByStatuses(List.of("TTO_APPROVED", "ENGINEER_APPROVED", "ENGINEER_REJECTED"));
+        
+        // Ensure photos are properly consolidated for each request
+        for (TireRequest request : requests) {
+            consolidatePhotos(request);
+        }
+        
+        logger.info("Retrieved {} engineer requests with consolidated photos", requests.size());
+        return requests;
     }
 
 
@@ -355,7 +386,12 @@ public class TireRequestController {
                     photos.addAll(request.getTirePhotoUrls());
                 }
                 if (request.getPhotoUrls() != null && !request.getPhotoUrls().isEmpty()) {
-                    photos.addAll(request.getPhotoUrls());
+                    // Avoid duplicates
+                    for (String photo : request.getPhotoUrls()) {
+                        if (!photos.contains(photo)) {
+                            photos.add(photo);
+                        }
+                    }
                 }
                 
                 logger.info("Retrieved {} photos for request {}", photos.size(), id);
@@ -367,6 +403,69 @@ public class TireRequestController {
         } catch (Exception e) {
             logger.error("Error getting photos for request {}: {}", id, e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ArrayList<>());
+        }
+    }
+
+    // New endpoint specifically for table photo display
+    @GetMapping("/{id}/photos/count")
+    public ResponseEntity<Map<String, Object>> getPhotoCount(@PathVariable String id) {
+        try {
+            TireRequest request = tireRequestService.getTireRequestById(id).orElse(null);
+            if (request != null) {
+                consolidatePhotos(request);
+                
+                int photoCount = 0;
+                List<String> photoUrls = new ArrayList<>();
+                
+                if (request.getPhotoUrls() != null) {
+                    photoCount = request.getPhotoUrls().size();
+                    photoUrls = request.getPhotoUrls();
+                }
+                
+                Map<String, Object> response = Map.of(
+                    "count", photoCount,
+                    "hasPhotos", photoCount > 0,
+                    "photos", photoUrls
+                );
+                
+                return ResponseEntity.ok(response);
+            } else {
+                return ResponseEntity.ok(Map.of("count", 0, "hasPhotos", false, "photos", new ArrayList<>()));
+            }
+        } catch (Exception e) {
+            logger.error("Error getting photo count for request {}: {}", id, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("count", 0, "hasPhotos", false, "photos", new ArrayList<>()));
+        }
+    }
+
+    /**
+     * Helper method to consolidate photos from both tirePhotoUrls and photoUrls fields
+     * This ensures that photos are always available in both fields for frontend compatibility
+     */
+    private void consolidatePhotos(TireRequest request) {
+        if (request == null) return;
+        
+        List<String> allPhotos = new ArrayList<>();
+        
+        // Collect photos from both fields
+        if (request.getTirePhotoUrls() != null && !request.getTirePhotoUrls().isEmpty()) {
+            allPhotos.addAll(request.getTirePhotoUrls());
+        }
+        if (request.getPhotoUrls() != null && !request.getPhotoUrls().isEmpty()) {
+            // Only add if not already in the list (avoid duplicates)
+            for (String photo : request.getPhotoUrls()) {
+                if (!allPhotos.contains(photo)) {
+                    allPhotos.add(photo);
+                }
+            }
+        }
+        
+        // Update both fields with consolidated photos
+        request.setTirePhotoUrls(allPhotos);
+        request.setPhotoUrls(allPhotos);
+        
+        if (!allPhotos.isEmpty()) {
+            logger.debug("Consolidated {} photos for request {}", allPhotos.size(), request.getId());
         }
     }
 }
