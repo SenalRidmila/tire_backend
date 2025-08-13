@@ -322,23 +322,22 @@ public class TireRequestController {
     @PostMapping("/auth/login")
     public ResponseEntity<Map<String, Object>> login(@RequestBody Map<String, String> loginRequest) {
         try {
-            String email = loginRequest.get("email");
+            String loginField = loginRequest.get("email"); // Can be email or employeeId
             String password = loginRequest.get("password");
             
-            if (email == null || password == null) {
+            if (loginField == null || password == null) {
                 return ResponseEntity.badRequest()
-                    .body(Map.of("success", false, "message", "Email and password are required"));
+                    .body(Map.of("success", false, "message", "Login credentials are required"));
             }
             
-            // Use the tire request service to find employee by email
-            // For now, we'll use a simple authentication check
-            Map<String, Object> authResult = authenticateEmployee(email, password);
+            // Authenticate with either email or employeeId
+            Map<String, Object> authResult = authenticateEmployee(loginField, password);
             
             if ((Boolean) authResult.get("success")) {
-                logger.info("Successful login for email: {}", email);
+                logger.info("Successful login for: {}", loginField);
                 return ResponseEntity.ok(authResult);
             } else {
-                logger.warn("Failed login attempt for email: {}", email);
+                logger.warn("Failed login attempt for: {}", loginField);
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(authResult);
             }
             
@@ -602,10 +601,18 @@ public class TireRequestController {
     /**
      * Helper method to authenticate employee using MongoDB employees collection
      */
-    private Map<String, Object> authenticateEmployee(String email, String password) {
+    private Map<String, Object> authenticateEmployee(String loginField, String password) {
         try {
-            // Use the service to authenticate against employees collection
-            Map<String, Object> employee = tireRequestService.findEmployeeByEmailAndPassword(email, password);
+            Map<String, Object> employee = null;
+            
+            // Check if loginField is an email (contains @) or employeeId
+            if (loginField.contains("@")) {
+                // Login with email
+                employee = tireRequestService.findEmployeeByEmailAndPassword(loginField, password);
+            } else {
+                // Login with employeeId
+                employee = tireRequestService.findEmployeeByEmployeeIdAndPassword(loginField, password);
+            }
             
             if (employee != null) {
                 // Remove password from response for security
@@ -615,7 +622,7 @@ public class TireRequestController {
                     "success", true,
                     "message", "Login successful",
                     "user", employee,
-                    "token", generateSimpleToken(email) // Simple token generation
+                    "token", generateSimpleToken(loginField) // Simple token generation
                 );
             } else {
                 return Map.of(

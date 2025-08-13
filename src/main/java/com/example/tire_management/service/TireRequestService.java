@@ -276,6 +276,18 @@ public class TireRequestService {
         }
     }
 
+    public Map<String, Object> findEmployeeByEmployeeIdAndPassword(String employeeId, String password) {
+        try {
+            Query query = new Query(Criteria.where("employeeId").is(employeeId).and("password").is(password));
+            @SuppressWarnings("unchecked")
+            Map<String, Object> employee = mongoTemplate.findOne(query, Map.class, "employees");
+            return employee;
+        } catch (Exception e) {
+            logger.error("Error finding employee by employeeId and password: {}", e.getMessage(), e);
+            return null;
+        }
+    }
+
     public Map<String, Object> findEmployeeByEmail(String email) {
         try {
             Query query = new Query(Criteria.where("email").is(email));
