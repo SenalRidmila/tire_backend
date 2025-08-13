@@ -7,6 +7,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -38,7 +39,9 @@ import com.example.tire_management.service.TireRequestService;
     "http://localhost:3000",
     "http://localhost:3001",
     "https://tire-frontend.vercel.app",
-    "https://tire-frontend-git-main-senalridmila2-6843s-projects.vercel.app"
+    "https://tire-frontend-git-main-senalridmila2-6843s-projects.vercel.app",
+    "https://tire-frontend-vercel.app",
+    "*"
 })
 @RestController
 @RequestMapping("/api/tire-requests")
@@ -435,6 +438,46 @@ public class TireRequestController {
         } catch (Exception e) {
             logger.error("Error getting photo count for request {}: {}", id, e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("count", 0, "hasPhotos", false, "photos", new ArrayList<>()));
+        }
+    }
+
+    // Debug endpoint to check photos
+    @GetMapping("/debug/photos")
+    public ResponseEntity<Map<String, Object>> debugPhotos() {
+        try {
+            List<TireRequest> allRequests = tireRequestService.getAllTireRequests();
+            
+            Map<String, Object> debugInfo = new HashMap<>();
+            debugInfo.put("totalRequests", allRequests.size());
+            
+            List<Map<String, Object>> requestsWithPhotos = new ArrayList<>();
+            
+            for (TireRequest request : allRequests) {
+                Map<String, Object> requestInfo = new HashMap<>();
+                requestInfo.put("id", request.getId());
+                requestInfo.put("vehicleModel", request.getVehicleModel());
+                
+                // Count photos from both fields
+                int tirePhotoCount = request.getTirePhotoUrls() != null ? request.getTirePhotoUrls().size() : 0;
+                int photoCount = request.getPhotoUrls() != null ? request.getPhotoUrls().size() : 0;
+                
+                requestInfo.put("tirePhotoUrls_count", tirePhotoCount);
+                requestInfo.put("photoUrls_count", photoCount);
+                requestInfo.put("totalPhotos", Math.max(tirePhotoCount, photoCount));
+                
+                if (tirePhotoCount > 0 || photoCount > 0) {
+                    requestsWithPhotos.add(requestInfo);
+                }
+            }
+            
+            debugInfo.put("requestsWithPhotos", requestsWithPhotos);
+            debugInfo.put("requestsWithPhotosCount", requestsWithPhotos.size());
+            
+            return ResponseEntity.ok(debugInfo);
+        } catch (Exception e) {
+            logger.error("Error in debug photos endpoint: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
         }
     }
 
