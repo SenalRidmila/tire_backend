@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -99,11 +100,87 @@ public class TireRequestController {
             TireRequest request = buildTireRequestFromParams(params);
 
             List<String> photoUrls = saveUploadedFiles(tirePhotos);
+            // Save to both photo fields for consistency
             request.setTirePhotoUrls(photoUrls);
+            request.setPhotoUrls(photoUrls);
 
             TireRequest createdRequest = tireRequestService.createTireRequest(request);
+            logger.info("Created tire request with {} photos", photoUrls.size());
             return ResponseEntity.ok(createdRequest);
         } catch (IOException e) {
+            logger.error("Error creating tire request: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    // Alternative endpoint for form-based submission (matching frontend)
+    @PostMapping("/create")
+    public ResponseEntity<TireRequest> createTireRequestForm(
+            @RequestParam("vehicleModel") String vehicleModel,
+            @RequestParam("section") String section,
+            @RequestParam("tireSize") String tireSize,
+            @RequestParam("numberOfTires") int numberOfTires,
+            @RequestParam("numberOfTubes") int numberOfTubes,
+            @RequestParam("presentKm") int presentKm,
+            @RequestParam("previousKm") int previousKm,
+            @RequestParam("wearPattern") String wearPattern,
+            @RequestParam("officerName") String officerName,
+            @RequestParam("email") String email,
+            @RequestParam(value = "photos", required = false) MultipartFile[] photos) {
+
+        try {
+            TireRequest request = new TireRequest();
+            request.setVehicleModel(vehicleModel);
+            request.setUserSection(section);
+            request.setTireSize(tireSize);
+            request.setNoOfTires(String.valueOf(numberOfTires));
+            request.setNoOfTubes(String.valueOf(numberOfTubes));
+            request.setPresentKm(String.valueOf(presentKm));
+            request.setPreviousKm(String.valueOf(previousKm));
+            request.setWearPattern(wearPattern);
+            request.setOfficerServiceNo(officerName);
+            request.setemail(email);
+            request.setReplacementDate(new Date().toString());
+            request.setStatus("PENDING");
+
+            // Handle photo uploads
+            List<String> photoUrls = new ArrayList<>();
+            if (photos != null && photos.length > 0) {
+                for (MultipartFile photo : photos) {
+                    if (!photo.isEmpty()) {
+                        try {
+                            // Convert to Base64 with proper MIME type
+                            String contentType = photo.getContentType();
+                            if (contentType == null) {
+                                contentType = "image/jpeg"; // default
+                            }
+                            
+                            byte[] photoBytes = photo.getBytes();
+                            String base64Image = Base64.getEncoder().encodeToString(photoBytes);
+                            String dataUrl = "data:" + contentType + ";base64," + base64Image;
+                            
+                            photoUrls.add(dataUrl);
+                            logger.info("Successfully converted photo to Base64. Size: {} bytes, Type: {}", 
+                                       photoBytes.length, contentType);
+                        } catch (Exception e) {
+                            logger.error("Error processing photo: {}", e.getMessage());
+                            // Continue with other photos
+                        }
+                    }
+                }
+            }
+            
+            // Save to both photo fields for consistency
+            request.setTirePhotoUrls(photoUrls);
+            request.setPhotoUrls(photoUrls);
+            logger.info("Saved {} photos for new request", photoUrls.size());
+
+            TireRequest savedRequest = tireRequestService.createTireRequest(request);
+            logger.info("Tire request created successfully with ID: {}", savedRequest.getId());
+            
+            return ResponseEntity.ok(savedRequest);
+        } catch (Exception e) {
+            logger.error("Error creating tire request: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
@@ -118,11 +195,15 @@ public class TireRequestController {
             TireRequest request = buildTireRequestFromParams(params);
 
             List<String> photoUrls = saveUploadedFiles(tirePhotos);
+            // Save to both photo fields for consistency
             request.setTirePhotoUrls(photoUrls);
+            request.setPhotoUrls(photoUrls);
 
             TireRequest updatedRequest = tireRequestService.updateTireRequest(id, request);
+            logger.info("Updated tire request {} with {} photos", id, photoUrls.size());
             return ResponseEntity.ok(updatedRequest);
         } catch (IOException e) {
+            logger.error("Error updating tire request {}: {}", id, e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
@@ -234,15 +315,31 @@ public class TireRequestController {
         if (files != null && !files.isEmpty()) {
             for (MultipartFile file : files) {
                 if (file != null && !file.isEmpty()) {
-                    // Convert to Base64 for database storage (temporary solution)
-                    byte[] fileBytes = file.getBytes();
-                    String base64Image = Base64.getEncoder().encodeToString(fileBytes);
-                    String dataUrl = "data:" + file.getContentType() + ";base64," + base64Image;
-                    photoUrls.add(dataUrl);
+                    try {
+                        // Validate file type
+                        String contentType = file.getContentType();
+                        if (contentType == null || (!contentType.startsWith("image/"))) {
+                            logger.warn("Invalid file type: {}. Skipping file.", contentType);
+                            continue;
+                        }
+                        
+                        // Convert to Base64 for database storage
+                        byte[] fileBytes = file.getBytes();
+                        String base64Image = Base64.getEncoder().encodeToString(fileBytes);
+                        String dataUrl = "data:" + contentType + ";base64," + base64Image;
+                        
+                        photoUrls.add(dataUrl);
+                        logger.info("Successfully processed photo. Size: {} bytes, Type: {}", 
+                                   fileBytes.length, contentType);
+                    } catch (Exception e) {
+                        logger.error("Error processing file {}: {}", file.getOriginalFilename(), e.getMessage());
+                        // Continue with other files instead of failing completely
+                    }
                 }
             }
         }
 
+        logger.info("Processed {} photos successfully", photoUrls.size());
         return photoUrls;
     }
 
@@ -250,9 +347,21 @@ public class TireRequestController {
     public ResponseEntity<List<String>> getTireRequestPhotos(@PathVariable String id) {
         try {
             TireRequest request = tireRequestService.getTireRequestById(id).orElse(null);
-            if (request != null && request.getPhotoUrls() != null) {
-                return ResponseEntity.ok(request.getPhotoUrls());
+            if (request != null) {
+                List<String> photos = new ArrayList<>();
+                
+                // Check both photo fields to ensure we get all photos
+                if (request.getTirePhotoUrls() != null && !request.getTirePhotoUrls().isEmpty()) {
+                    photos.addAll(request.getTirePhotoUrls());
+                }
+                if (request.getPhotoUrls() != null && !request.getPhotoUrls().isEmpty()) {
+                    photos.addAll(request.getPhotoUrls());
+                }
+                
+                logger.info("Retrieved {} photos for request {}", photos.size(), id);
+                return ResponseEntity.ok(photos);
             } else {
+                logger.warn("No tire request found with id: {}", id);
                 return ResponseEntity.ok(new ArrayList<>());
             }
         } catch (Exception e) {
