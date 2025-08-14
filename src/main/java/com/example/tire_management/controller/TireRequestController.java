@@ -559,58 +559,6 @@ public class TireRequestController {
         }
     }
 
-    // Additional endpoint for TTO dashboard with photo validation  
-    @GetMapping("/tto/requests-with-photos")
-    public ResponseEntity<Map<String, Object>> getTTORequestsWithPhotos() {
-        try {
-            List<TireRequest> requests = tireRequestService.getRequestsByStatuses(
-                    List.of("APPROVED", "MANAGER_APPROVED", "TTO_APPROVED", "TTO_REJECTED", "ENGINEER_APPROVED", "ENGINEER_REJECTED", "approved", "pending")
-            );
-            
-            int totalRequests = requests.size();
-            int totalPhotos = 0;
-            int requestsWithPhotos = 0;
-            
-            for (TireRequest request : requests) {
-                consolidatePhotos(request);
-                
-                // Validate photos for each request
-                if (request.getTirePhotoUrls() != null && !request.getTirePhotoUrls().isEmpty()) {
-                    List<String> validPhotos = new ArrayList<>();
-                    for (String photo : request.getTirePhotoUrls()) {
-                        if (isValidBase64Image(photo)) {
-                            validPhotos.add(photo);
-                        } else {
-                            logger.warn("Invalid photo detected in request {}", request.getId());
-                        }
-                    }
-                    request.setTirePhotoUrls(validPhotos);
-                    request.setPhotoUrls(validPhotos);
-                    
-                    if (!validPhotos.isEmpty()) {
-                        requestsWithPhotos++;
-                        totalPhotos += validPhotos.size();
-                    }
-                }
-            }
-            
-            Map<String, Object> response = new HashMap<>();
-            response.put("requests", requests);
-            response.put("totalRequests", totalRequests);
-            response.put("requestsWithPhotos", requestsWithPhotos);
-            response.put("totalPhotos", totalPhotos);
-            
-            logger.info("TTO dashboard: {} requests, {} with photos, {} total photos", 
-                       totalRequests, requestsWithPhotos, totalPhotos);
-            
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            logger.error("Error getting TTO requests with photos: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", e.getMessage()));
-        }
-    }
-
     // TTO specific endpoint to view photos for a request
     @GetMapping("/tto/{id}/photos")
     public ResponseEntity<Map<String, Object>> getTTORequestPhotos(@PathVariable String id) {
