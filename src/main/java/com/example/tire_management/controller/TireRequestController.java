@@ -82,11 +82,17 @@ public class TireRequestController {
         List<TireRequest> requests = tireRequestService.getRequestsByStatuses(List.of("pending", "PENDING", "MANAGER_APPROVED", "APPROVED"));
         
         // Ensure photos are properly consolidated for each request
+        int totalPhotos = 0;
         for (TireRequest request : requests) {
             consolidatePhotos(request);
+            
+            // Count photos for logging
+            if (request.getTirePhotoUrls() != null) {
+                totalPhotos += request.getTirePhotoUrls().size();
+            }
         }
         
-        logger.info("Retrieved {} manager requests with consolidated photos", requests.size());
+        logger.info("Retrieved {} manager requests with {} total photos", requests.size(), totalPhotos);
         return requests;
     }
 
@@ -98,11 +104,17 @@ public class TireRequestController {
         );
         
         // Ensure photos are properly consolidated for each request
+        int totalPhotos = 0;
         for (TireRequest request : requests) {
             consolidatePhotos(request);
+            
+            // Count photos for logging
+            if (request.getTirePhotoUrls() != null) {
+                totalPhotos += request.getTirePhotoUrls().size();
+            }
         }
         
-        logger.info("Retrieved {} TTO requests with consolidated photos", requests.size());
+        logger.info("Retrieved {} TTO requests with {} total photos", requests.size(), totalPhotos);
         return requests;
     }
 
@@ -112,12 +124,120 @@ public class TireRequestController {
         List<TireRequest> requests = tireRequestService.getRequestsByStatuses(List.of("TTO_APPROVED", "ENGINEER_APPROVED", "ENGINEER_REJECTED"));
         
         // Ensure photos are properly consolidated for each request
+        int totalPhotos = 0;
         for (TireRequest request : requests) {
             consolidatePhotos(request);
+            
+            // Count photos for logging
+            if (request.getTirePhotoUrls() != null) {
+                totalPhotos += request.getTirePhotoUrls().size();
+            }
         }
         
-        logger.info("Retrieved {} engineer requests with consolidated photos", requests.size());
+        logger.info("Retrieved {} engineer requests with {} total photos", requests.size(), totalPhotos);
         return requests;
+    }
+
+    // Additional endpoint for manager dashboard with photo validation
+    @GetMapping("/manager/requests-with-photos")
+    public ResponseEntity<Map<String, Object>> getManagerRequestsWithPhotos() {
+        try {
+            List<TireRequest> requests = tireRequestService.getRequestsByStatuses(List.of("pending", "PENDING", "MANAGER_APPROVED", "APPROVED"));
+            
+            int totalRequests = requests.size();
+            int totalPhotos = 0;
+            int requestsWithPhotos = 0;
+            
+            for (TireRequest request : requests) {
+                consolidatePhotos(request);
+                
+                // Validate photos for each request
+                if (request.getTirePhotoUrls() != null && !request.getTirePhotoUrls().isEmpty()) {
+                    List<String> validPhotos = new ArrayList<>();
+                    for (String photo : request.getTirePhotoUrls()) {
+                        if (isValidBase64Image(photo)) {
+                            validPhotos.add(photo);
+                        } else {
+                            logger.warn("Invalid photo detected in request {}", request.getId());
+                        }
+                    }
+                    request.setTirePhotoUrls(validPhotos);
+                    request.setPhotoUrls(validPhotos);
+                    
+                    if (!validPhotos.isEmpty()) {
+                        requestsWithPhotos++;
+                        totalPhotos += validPhotos.size();
+                    }
+                }
+            }
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("requests", requests);
+            response.put("totalRequests", totalRequests);
+            response.put("requestsWithPhotos", requestsWithPhotos);
+            response.put("totalPhotos", totalPhotos);
+            
+            logger.info("Manager dashboard: {} requests, {} with photos, {} total photos", 
+                       totalRequests, requestsWithPhotos, totalPhotos);
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Error getting manager requests with photos: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // Additional endpoint for TTO dashboard with photo validation  
+    @GetMapping("/tto/requests-with-photos")
+    public ResponseEntity<Map<String, Object>> getTTORequestsWithPhotos() {
+        try {
+            List<TireRequest> requests = tireRequestService.getRequestsByStatuses(
+                    List.of("APPROVED", "MANAGER_APPROVED", "TTO_APPROVED", "TTO_REJECTED", "ENGINEER_APPROVED", "ENGINEER_REJECTED", "approved", "pending")
+            );
+            
+            int totalRequests = requests.size();
+            int totalPhotos = 0;
+            int requestsWithPhotos = 0;
+            
+            for (TireRequest request : requests) {
+                consolidatePhotos(request);
+                
+                // Validate photos for each request
+                if (request.getTirePhotoUrls() != null && !request.getTirePhotoUrls().isEmpty()) {
+                    List<String> validPhotos = new ArrayList<>();
+                    for (String photo : request.getTirePhotoUrls()) {
+                        if (isValidBase64Image(photo)) {
+                            validPhotos.add(photo);
+                        } else {
+                            logger.warn("Invalid photo detected in request {}", request.getId());
+                        }
+                    }
+                    request.setTirePhotoUrls(validPhotos);
+                    request.setPhotoUrls(validPhotos);
+                    
+                    if (!validPhotos.isEmpty()) {
+                        requestsWithPhotos++;
+                        totalPhotos += validPhotos.size();
+                    }
+                }
+            }
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("requests", requests);
+            response.put("totalRequests", totalRequests);
+            response.put("requestsWithPhotos", requestsWithPhotos);
+            response.put("totalPhotos", totalPhotos);
+            
+            logger.info("TTO dashboard: {} requests, {} with photos, {} total photos", 
+                       totalRequests, requestsWithPhotos, totalPhotos);
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Error getting TTO requests with photos: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
     }
 
 
