@@ -240,6 +240,8 @@ public class EmailService {
             Context context = new Context();
             context.setVariable("request", request);
             context.setVariable("approvalDate", new Date().toString());
+            context.setVariable("engineerDashboardUrl", "https://tire-frontend.vercel.app/engineer");
+            context.setVariable("requestReviewUrl", "https://tire-frontend.vercel.app/engineer?requestId=" + request.getId());
 
             // Process the template
             String emailContent = templateEngine.process("email/engineer-notification", context);
