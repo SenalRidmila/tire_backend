@@ -318,6 +318,43 @@ public class TireRequestController {
         return ResponseEntity.ok().build();
     }
 
+    // Debug endpoint to check photo data in database
+    @GetMapping("/{id}/debug-photos")
+    public ResponseEntity<Map<String, Object>> debugPhotos(@PathVariable String id) {
+        try {
+            TireRequest request = tireRequestService.getTireRequestById(id).orElse(null);
+            if (request == null) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            Map<String, Object> debug = new HashMap<>();
+            debug.put("requestId", id);
+            debug.put("tirePhotoUrls", request.getTirePhotoUrls());
+            debug.put("photoUrls", request.getPhotoUrls());
+            debug.put("tirePhotoUrlsCount", request.getTirePhotoUrls() != null ? request.getTirePhotoUrls().size() : 0);
+            debug.put("photoUrlsCount", request.getPhotoUrls() != null ? request.getPhotoUrls().size() : 0);
+            
+            // Check if photos contain base64 data
+            if (request.getTirePhotoUrls() != null && !request.getTirePhotoUrls().isEmpty()) {
+                String firstPhoto = request.getTirePhotoUrls().get(0);
+                debug.put("firstPhotoPreview", firstPhoto != null && firstPhoto.length() > 50 ? 
+                    firstPhoto.substring(0, 50) + "..." : firstPhoto);
+                debug.put("isBase64", firstPhoto != null && firstPhoto.startsWith("data:"));
+            }
+            
+            logger.info("Debug photos for request {}: tirePhotos={}, photoUrls={}", 
+                id, 
+                request.getTirePhotoUrls() != null ? request.getTirePhotoUrls().size() : 0,
+                request.getPhotoUrls() != null ? request.getPhotoUrls().size() : 0);
+            
+            return ResponseEntity.ok(debug);
+        } catch (Exception e) {
+            logger.error("Error debugging photos for request {}: {}", id, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
     // ----------------- Authentication Endpoints -----------------
     @PostMapping("/auth/login")
     public ResponseEntity<Map<String, Object>> login(@RequestBody Map<String, String> loginRequest) {
@@ -432,29 +469,27 @@ public class TireRequestController {
         try {
             TireRequest request = tireRequestService.getTireRequestById(id).orElse(null);
             if (request != null) {
-                List<String> photos = new ArrayList<>();
+                // Use the consolidatePhotos method to ensure consistency
+                consolidatePhotos(request);
                 
-                // Check both photo fields to ensure we get all photos
-                if (request.getTirePhotoUrls() != null && !request.getTirePhotoUrls().isEmpty()) {
-                    photos.addAll(request.getTirePhotoUrls());
-                }
-                if (request.getPhotoUrls() != null && !request.getPhotoUrls().isEmpty()) {
-                    // Avoid duplicates
-                    for (String photo : request.getPhotoUrls()) {
-                        if (!photos.contains(photo)) {
-                            photos.add(photo);
-                        }
-                    }
+                List<String> photos = request.getTirePhotoUrls() != null ? 
+                    new ArrayList<>(request.getTirePhotoUrls()) : new ArrayList<>();
+                
+                logger.info("Retrieved {} photos for request {} from MongoDB", photos.size(), id);
+                
+                // Log additional debug info
+                if (!photos.isEmpty()) {
+                    logger.info("First photo starts with: {}", 
+                        photos.get(0).length() > 30 ? photos.get(0).substring(0, 30) + "..." : photos.get(0));
                 }
                 
-                logger.info("Retrieved {} photos for request {}", photos.size(), id);
                 return ResponseEntity.ok(photos);
             } else {
                 logger.warn("No tire request found with id: {}", id);
                 return ResponseEntity.ok(new ArrayList<>());
             }
         } catch (Exception e) {
-            logger.error("Error getting photos for request {}: {}", id, e.getMessage());
+            logger.error("Error getting photos for request {}: {}", id, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ArrayList<>());
         }
     }
@@ -579,6 +614,7 @@ public class TireRequestController {
         // Collect photos from both fields
         if (request.getTirePhotoUrls() != null && !request.getTirePhotoUrls().isEmpty()) {
             allPhotos.addAll(request.getTirePhotoUrls());
+            logger.debug("Found {} photos in tirePhotoUrls for request {}", request.getTirePhotoUrls().size(), request.getId());
         }
         if (request.getPhotoUrls() != null && !request.getPhotoUrls().isEmpty()) {
             // Only add if not already in the list (avoid duplicates)
@@ -587,6 +623,7 @@ public class TireRequestController {
                     allPhotos.add(photo);
                 }
             }
+            logger.debug("Found {} photos in photoUrls for request {}", request.getPhotoUrls().size(), request.getId());
         }
         
         // Update both fields with consolidated photos
@@ -594,7 +631,18 @@ public class TireRequestController {
         request.setPhotoUrls(allPhotos);
         
         if (!allPhotos.isEmpty()) {
-            logger.debug("Consolidated {} photos for request {}", allPhotos.size(), request.getId());
+            logger.info("Consolidated {} photos for request {}", allPhotos.size(), request.getId());
+            
+            // Log first few characters of each photo to verify Base64 data
+            for (int i = 0; i < Math.min(allPhotos.size(), 3); i++) {
+                String photo = allPhotos.get(i);
+                if (photo != null) {
+                    String preview = photo.length() > 50 ? photo.substring(0, 50) + "..." : photo;
+                    logger.debug("Photo {}: {}", i + 1, preview);
+                }
+            }
+        } else {
+            logger.warn("No photos found for request {}", request.getId());
         }
     }
 
