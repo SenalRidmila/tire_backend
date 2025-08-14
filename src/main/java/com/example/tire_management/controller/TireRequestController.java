@@ -337,6 +337,165 @@ public class TireRequestController {
         }
     }
 
+    // Engineer dashboard with photo validation
+    @GetMapping("/engineer/requests-with-photos")
+    public ResponseEntity<Map<String, Object>> getEngineerRequestsWithPhotos() {
+        try {
+            List<TireRequest> requests = tireRequestService.getRequestsByStatuses(
+                    List.of("TTO_APPROVED", "ENGINEER_APPROVED", "ENGINEER_REJECTED")
+            );
+            
+            int totalRequests = requests.size();
+            int totalPhotos = 0;
+            int requestsWithPhotos = 0;
+            
+            for (TireRequest request : requests) {
+                consolidatePhotos(request);
+                
+                // Validate photos for each request
+                if (request.getTirePhotoUrls() != null && !request.getTirePhotoUrls().isEmpty()) {
+                    List<String> validPhotos = new ArrayList<>();
+                    for (String photo : request.getTirePhotoUrls()) {
+                        if (isValidBase64Image(photo)) {
+                            validPhotos.add(photo);
+                        } else {
+                            logger.warn("Invalid photo detected in request {}", request.getId());
+                        }
+                    }
+                    request.setTirePhotoUrls(validPhotos);
+                    request.setPhotoUrls(validPhotos);
+                    
+                    if (!validPhotos.isEmpty()) {
+                        requestsWithPhotos++;
+                        totalPhotos += validPhotos.size();
+                    }
+                }
+            }
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("requests", requests);
+            response.put("totalRequests", totalRequests);
+            response.put("requestsWithPhotos", requestsWithPhotos);
+            response.put("totalPhotos", totalPhotos);
+            
+            logger.info("Engineer dashboard: {} requests, {} with photos, {} total photos", 
+                       totalRequests, requestsWithPhotos, totalPhotos);
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Error getting Engineer requests with photos: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // Engineer specific endpoint to view photos for a request
+    @GetMapping("/engineer/{id}/photos")
+    public ResponseEntity<Map<String, Object>> getEngineerRequestPhotos(@PathVariable String id) {
+        try {
+            TireRequest request = tireRequestService.getTireRequestById(id).orElse(null);
+            if (request == null) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            // Check if engineer has access to this request
+            if (!List.of("TTO_APPROVED", "ENGINEER_APPROVED", "ENGINEER_REJECTED").contains(request.getStatus())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("error", "Engineer access denied for this request status"));
+            }
+            
+            // Ensure photos are consolidated and validated
+            consolidatePhotos(request);
+            
+            List<String> validPhotos = new ArrayList<>();
+            if (request.getTirePhotoUrls() != null) {
+                for (String photo : request.getTirePhotoUrls()) {
+                    if (isValidBase64Image(photo)) {
+                        validPhotos.add(photo);
+                    }
+                }
+            }
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("requestId", id);
+            response.put("vehicleNo", request.getVehicleNo());
+            response.put("vehicleType", request.getVehicleType());
+            response.put("vehicleBrand", request.getVehicleBrand());
+            response.put("tireSize", request.getTireSize());
+            response.put("photos", validPhotos);
+            response.put("photoCount", validPhotos.size());
+            response.put("status", request.getStatus());
+            response.put("viewedBy", "Engineer");
+            response.put("ttoApprovalDate", request.getTtoApprovalDate());
+            
+            logger.info("Engineer viewing {} photos for request {} (Vehicle: {} - {})", 
+                       validPhotos.size(), id, request.getVehicleNo(), request.getVehicleType());
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Error getting Engineer photos for request {}: {}", id, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // Engineer bulk photo validation endpoint
+    @PostMapping("/engineer/validate-all-photos")
+    public ResponseEntity<Map<String, Object>> validateAllEngineerPhotos() {
+        try {
+            List<TireRequest> requests = tireRequestService.getRequestsByStatuses(
+                    List.of("TTO_APPROVED", "ENGINEER_APPROVED", "ENGINEER_REJECTED")
+            );
+            
+            int totalRequests = requests.size();
+            int requestsProcessed = 0;
+            int totalPhotosValidated = 0;
+            int corruptedPhotosRemoved = 0;
+            
+            for (TireRequest request : requests) {
+                List<String> validPhotos = new ArrayList<>();
+                
+                // Validate and consolidate photos
+                consolidatePhotos(request);
+                
+                if (request.getTirePhotoUrls() != null) {
+                    for (String photo : request.getTirePhotoUrls()) {
+                        if (isValidBase64Image(photo)) {
+                            validPhotos.add(photo);
+                        } else {
+                            corruptedPhotosRemoved++;
+                        }
+                    }
+                }
+                
+                // Update request with validated photos
+                request.setTirePhotoUrls(validPhotos);
+                request.setPhotoUrls(validPhotos);
+                tireRequestService.updateTireRequest(request.getId(), request);
+                
+                requestsProcessed++;
+                totalPhotosValidated += validPhotos.size();
+            }
+            
+            Map<String, Object> result = new HashMap<>();
+            result.put("totalRequests", totalRequests);
+            result.put("requestsProcessed", requestsProcessed);
+            result.put("totalPhotosValidated", totalPhotosValidated);
+            result.put("corruptedPhotosRemoved", corruptedPhotosRemoved);
+            result.put("processedBy", "Engineer");
+            result.put("timestamp", new Date().toString());
+            
+            logger.info("Engineer bulk photo validation: {} requests, {} photos validated, {} corrupted removed", 
+                       requestsProcessed, totalPhotosValidated, corruptedPhotosRemoved);
+            
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            logger.error("Error in Engineer bulk photo validation: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
 
 
     // ----------------- Create / Update / Delete -----------------
