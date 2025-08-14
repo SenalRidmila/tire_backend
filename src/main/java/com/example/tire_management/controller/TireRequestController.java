@@ -355,6 +355,100 @@ public class TireRequestController {
         }
     }
 
+    // Photo validation and cleanup endpoint
+    @PostMapping("/{id}/validate-photos")
+    public ResponseEntity<Map<String, Object>> validateAndCleanPhotos(@PathVariable String id) {
+        try {
+            TireRequest request = tireRequestService.getTireRequestById(id).orElse(null);
+            if (request == null) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            List<String> validPhotos = new ArrayList<>();
+            List<String> corruptedPhotos = new ArrayList<>();
+            int originalCount = 0;
+            
+            // Check tirePhotoUrls
+            if (request.getTirePhotoUrls() != null) {
+                originalCount += request.getTirePhotoUrls().size();
+                for (String photo : request.getTirePhotoUrls()) {
+                    if (isValidBase64Image(photo)) {
+                        validPhotos.add(photo);
+                    } else {
+                        corruptedPhotos.add(photo.length() > 50 ? photo.substring(0, 50) + "..." : photo);
+                    }
+                }
+            }
+            
+            // Check photoUrls
+            if (request.getPhotoUrls() != null) {
+                originalCount += request.getPhotoUrls().size();
+                for (String photo : request.getPhotoUrls()) {
+                    if (!validPhotos.contains(photo) && isValidBase64Image(photo)) {
+                        validPhotos.add(photo);
+                    } else if (!validPhotos.contains(photo)) {
+                        corruptedPhotos.add(photo.length() > 50 ? photo.substring(0, 50) + "..." : photo);
+                    }
+                }
+            }
+            
+            // Update request with only valid photos
+            request.setTirePhotoUrls(validPhotos);
+            request.setPhotoUrls(validPhotos);
+            tireRequestService.updateTireRequest(id, request);
+            
+            Map<String, Object> result = new HashMap<>();
+            result.put("requestId", id);
+            result.put("originalPhotoCount", originalCount);
+            result.put("validPhotoCount", validPhotos.size());
+            result.put("corruptedPhotoCount", corruptedPhotos.size());
+            result.put("corruptedPhotos", corruptedPhotos);
+            result.put("cleaned", true);
+            
+            logger.info("Photo validation for request {}: {} valid, {} corrupted out of {} total", 
+                       id, validPhotos.size(), corruptedPhotos.size(), originalCount);
+            
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            logger.error("Error validating photos for request {}: {}", id, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Validate if a string is a valid Base64 encoded image
+     */
+    private boolean isValidBase64Image(String dataUrl) {
+        if (dataUrl == null || dataUrl.trim().isEmpty()) {
+            return false;
+        }
+        
+        // Check if it's a proper data URL
+        if (!dataUrl.startsWith("data:image/")) {
+            return false;
+        }
+        
+        // Extract the Base64 part
+        int commaIndex = dataUrl.indexOf(',');
+        if (commaIndex == -1 || commaIndex == dataUrl.length() - 1) {
+            return false;
+        }
+        
+        String base64Part = dataUrl.substring(commaIndex + 1);
+        
+        try {
+            // Try to decode the Base64
+            byte[] decodedBytes = Base64.getDecoder().decode(base64Part);
+            
+            // Check if decoded bytes represent a valid image
+            return isValidImageFile(decodedBytes);
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid Base64 encoding detected: {}", e.getMessage());
+            return false;
+        }
+    }
+
     // ----------------- Authentication Endpoints -----------------
     @PostMapping("/auth/login")
     public ResponseEntity<Map<String, Object>> login(@RequestBody Map<String, String> loginRequest) {
@@ -444,14 +538,39 @@ public class TireRequestController {
                             continue;
                         }
                         
-                        // Convert to Base64 for database storage
+                        // Get file bytes and validate
                         byte[] fileBytes = file.getBytes();
+                        if (fileBytes.length == 0) {
+                            logger.warn("Empty file detected: {}. Skipping.", file.getOriginalFilename());
+                            continue;
+                        }
+                        
+                        // Validate image format by checking file headers
+                        if (!isValidImageFile(fileBytes)) {
+                            logger.warn("Invalid image file detected: {}. Skipping.", file.getOriginalFilename());
+                            continue;
+                        }
+                        
+                        // Convert to Base64 for database storage
                         String base64Image = Base64.getEncoder().encodeToString(fileBytes);
+                        
+                        // Validate Base64 encoding
+                        if (base64Image == null || base64Image.trim().isEmpty()) {
+                            logger.warn("Base64 encoding failed for file: {}. Skipping.", file.getOriginalFilename());
+                            continue;
+                        }
+                        
                         String dataUrl = "data:" + contentType + ";base64," + base64Image;
                         
-                        photoUrls.add(dataUrl);
-                        logger.info("Successfully processed photo. Size: {} bytes, Type: {}", 
-                                   fileBytes.length, contentType);
+                        // Verify the data URL is properly formed
+                        if (dataUrl.length() > 50 && dataUrl.startsWith("data:image/")) {
+                            photoUrls.add(dataUrl);
+                            logger.info("Successfully processed photo: {} - Size: {} bytes, Type: {}, Base64 Length: {}", 
+                                       file.getOriginalFilename(), fileBytes.length, contentType, base64Image.length());
+                        } else {
+                            logger.warn("Malformed data URL for file: {}. Skipping.", file.getOriginalFilename());
+                        }
+                        
                     } catch (Exception e) {
                         logger.error("Error processing file {}: {}", file.getOriginalFilename(), e.getMessage());
                         // Continue with other files instead of failing completely
@@ -460,8 +579,60 @@ public class TireRequestController {
             }
         }
 
-        logger.info("Processed {} photos successfully", photoUrls.size());
+        logger.info("Processed {} photos successfully out of {} files", photoUrls.size(), 
+                    files != null ? files.size() : 0);
         return photoUrls;
+    }
+
+    /**
+     * Validate if the byte array represents a valid image file
+     */
+    private boolean isValidImageFile(byte[] fileBytes) {
+        if (fileBytes == null || fileBytes.length < 4) {
+            return false;
+        }
+        
+        // Check for common image file signatures
+        // JPEG: FF D8 FF
+        if (fileBytes.length >= 3 && 
+            (fileBytes[0] & 0xFF) == 0xFF && 
+            (fileBytes[1] & 0xFF) == 0xD8 && 
+            (fileBytes[2] & 0xFF) == 0xFF) {
+            return true;
+        }
+        
+        // PNG: 89 50 4E 47
+        if (fileBytes.length >= 4 && 
+            (fileBytes[0] & 0xFF) == 0x89 && 
+            (fileBytes[1] & 0xFF) == 0x50 && 
+            (fileBytes[2] & 0xFF) == 0x4E && 
+            (fileBytes[3] & 0xFF) == 0x47) {
+            return true;
+        }
+        
+        // GIF: 47 49 46 38
+        if (fileBytes.length >= 4 && 
+            (fileBytes[0] & 0xFF) == 0x47 && 
+            (fileBytes[1] & 0xFF) == 0x49 && 
+            (fileBytes[2] & 0xFF) == 0x46 && 
+            (fileBytes[3] & 0xFF) == 0x38) {
+            return true;
+        }
+        
+        // WebP: 52 49 46 46 (RIFF)
+        if (fileBytes.length >= 12 && 
+            (fileBytes[0] & 0xFF) == 0x52 && 
+            (fileBytes[1] & 0xFF) == 0x49 && 
+            (fileBytes[2] & 0xFF) == 0x46 && 
+            (fileBytes[3] & 0xFF) == 0x46 &&
+            (fileBytes[8] & 0xFF) == 0x57 && 
+            (fileBytes[9] & 0xFF) == 0x45 && 
+            (fileBytes[10] & 0xFF) == 0x42 && 
+            (fileBytes[11] & 0xFF) == 0x50) {
+            return true;
+        }
+        
+        return false;
     }
 
     @GetMapping("/{id}/photos")
