@@ -240,6 +240,103 @@ public class TireRequestController {
         }
     }
 
+    // TTO specific endpoint to view photos for a request
+    @GetMapping("/tto/{id}/photos")
+    public ResponseEntity<Map<String, Object>> getTTORequestPhotos(@PathVariable String id) {
+        try {
+            TireRequest request = tireRequestService.getTireRequestById(id).orElse(null);
+            if (request == null) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            // Ensure photos are consolidated and validated
+            consolidatePhotos(request);
+            
+            List<String> validPhotos = new ArrayList<>();
+            if (request.getTirePhotoUrls() != null) {
+                for (String photo : request.getTirePhotoUrls()) {
+                    if (isValidBase64Image(photo)) {
+                        validPhotos.add(photo);
+                    }
+                }
+            }
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("requestId", id);
+            response.put("vehicleNo", request.getVehicleNo());
+            response.put("photos", validPhotos);
+            response.put("photoCount", validPhotos.size());
+            response.put("status", request.getStatus());
+            response.put("viewedBy", "TTO");
+            
+            logger.info("TTO viewing {} photos for request {} (Vehicle: {})", 
+                       validPhotos.size(), id, request.getVehicleNo());
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Error getting TTO photos for request {}: {}", id, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // TTO bulk photo validation endpoint
+    @PostMapping("/tto/validate-all-photos")
+    public ResponseEntity<Map<String, Object>> validateAllTTOPhotos() {
+        try {
+            List<TireRequest> requests = tireRequestService.getRequestsByStatuses(
+                    List.of("APPROVED", "MANAGER_APPROVED", "TTO_APPROVED", "TTO_REJECTED", "ENGINEER_APPROVED", "ENGINEER_REJECTED", "approved", "pending")
+            );
+            
+            int totalRequests = requests.size();
+            int requestsProcessed = 0;
+            int totalPhotosValidated = 0;
+            int corruptedPhotosRemoved = 0;
+            
+            for (TireRequest request : requests) {
+                List<String> validPhotos = new ArrayList<>();
+                
+                // Validate and consolidate photos
+                consolidatePhotos(request);
+                
+                if (request.getTirePhotoUrls() != null) {
+                    for (String photo : request.getTirePhotoUrls()) {
+                        if (isValidBase64Image(photo)) {
+                            validPhotos.add(photo);
+                        } else {
+                            corruptedPhotosRemoved++;
+                        }
+                    }
+                }
+                
+                // Update request with validated photos
+                request.setTirePhotoUrls(validPhotos);
+                request.setPhotoUrls(validPhotos);
+                tireRequestService.updateTireRequest(request.getId(), request);
+                
+                requestsProcessed++;
+                totalPhotosValidated += validPhotos.size();
+            }
+            
+            Map<String, Object> result = new HashMap<>();
+            result.put("totalRequests", totalRequests);
+            result.put("requestsProcessed", requestsProcessed);
+            result.put("totalPhotosValidated", totalPhotosValidated);
+            result.put("corruptedPhotosRemoved", corruptedPhotosRemoved);
+            result.put("processedBy", "TTO");
+            result.put("timestamp", new Date().toString());
+            
+            logger.info("TTO bulk photo validation: {} requests, {} photos validated, {} corrupted removed", 
+                       requestsProcessed, totalPhotosValidated, corruptedPhotosRemoved);
+            
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            logger.error("Error in TTO bulk photo validation: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
 
 
     // ----------------- Create / Update / Delete -----------------
