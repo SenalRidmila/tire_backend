@@ -192,12 +192,12 @@ public class TireRequestController {
         return requests;
     }
 
-    // Optimized manager dashboard for fast table loading (without photos)
+    // Optimized manager dashboard for fast table loading with photos support
     @GetMapping("/manager/requests/fast")
     public ResponseEntity<Map<String, Object>> getRequestsForManagerFast(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
-            @RequestParam(defaultValue = "false") boolean includePhotos) {
+            @RequestParam(defaultValue = "true") boolean includePhotos) {
         
         try {
             org.springframework.data.domain.Pageable pageable = 
@@ -210,13 +210,46 @@ public class TireRequestController {
                 org.springframework.data.domain.Page<TireRequest> requestPage = 
                     tireRequestService.getRequestsByStatusesPaginated(statuses, pageable);
                 
+                // Process each request to consolidate and validate photos for Manager table
+                List<TireRequest> processedRequests = new ArrayList<>();
+                int totalPhotos = 0;
+                int requestsWithPhotos = 0;
+                
+                for (TireRequest request : requestPage.getContent()) {
+                    consolidatePhotos(request);
+                    
+                    // Validate photos for Manager dashboard table display
+                    if (request.getTirePhotoUrls() != null && !request.getTirePhotoUrls().isEmpty()) {
+                        List<String> validPhotos = new ArrayList<>();
+                        for (String photo : request.getTirePhotoUrls()) {
+                            if (isValidBase64Image(photo)) {
+                                validPhotos.add(photo);
+                            }
+                        }
+                        request.setTirePhotoUrls(validPhotos);
+                        request.setPhotoUrls(validPhotos);
+                        
+                        if (!validPhotos.isEmpty()) {
+                            requestsWithPhotos++;
+                            totalPhotos += validPhotos.size();
+                        }
+                    }
+                    processedRequests.add(request);
+                }
+                
                 Map<String, Object> response = new HashMap<>();
-                response.put("content", requestPage.getContent());
+                response.put("content", processedRequests);
                 response.put("totalElements", requestPage.getTotalElements());
                 response.put("totalPages", requestPage.getTotalPages());
                 response.put("currentPage", page);
                 response.put("size", size);
                 response.put("hasPhotos", true);
+                response.put("totalPhotos", totalPhotos);
+                response.put("requestsWithPhotos", requestsWithPhotos);
+                response.put("dashboard", "Manager");
+                
+                logger.info("Manager fast load with photos: {} requests on page {} of {}, {} photos total", 
+                           processedRequests.size(), page + 1, requestPage.getTotalPages(), totalPhotos);
                 
                 return ResponseEntity.ok(response);
             } else {
@@ -230,8 +263,9 @@ public class TireRequestController {
                 response.put("currentPage", page);
                 response.put("size", size);
                 response.put("hasPhotos", false);
+                response.put("dashboard", "Manager");
                 
-                logger.info("Manager fast load: {} requests on page {} of {}", 
+                logger.info("Manager fast load without photos: {} requests on page {} of {}", 
                            requestPage.getContent().size(), page + 1, requestPage.getTotalPages());
                 
                 return ResponseEntity.ok(response);
@@ -250,7 +284,7 @@ public class TireRequestController {
                 List.of("APPROVED", "MANAGER_APPROVED", "TTO_APPROVED", "TTO_REJECTED", "ENGINEER_APPROVED", "ENGINEER_REJECTED", "approved", "pending")
         );
         
-        // Ensure photos are properly consolidated for each request
+        // Ensure photos are properly consolidated for each request for TTO dashboard display
         int totalPhotos = 0;
         for (TireRequest request : requests) {
             consolidatePhotos(request);
@@ -261,16 +295,70 @@ public class TireRequestController {
             }
         }
         
-        logger.info("Retrieved {} TTO requests with {} total photos", requests.size(), totalPhotos);
+        logger.info("Retrieved {} TTO requests with {} total photos for CRUD table display", requests.size(), totalPhotos);
         return requests;
     }
 
-    // Optimized TTO dashboard for fast table loading
+    // Enhanced TTO dashboard endpoint with photos included for CRUD table
+    @GetMapping("/tto/requests-with-photos")
+    public ResponseEntity<Map<String, Object>> getTTORequestsWithPhotosForTable() {
+        try {
+            List<TireRequest> requests = tireRequestService.getRequestsByStatuses(
+                    List.of("APPROVED", "MANAGER_APPROVED", "TTO_APPROVED", "TTO_REJECTED", "ENGINEER_APPROVED", "ENGINEER_REJECTED", "approved", "pending")
+            );
+            
+            int totalRequests = requests.size();
+            int totalPhotos = 0;
+            int requestsWithPhotos = 0;
+            
+            for (TireRequest request : requests) {
+                consolidatePhotos(request);
+                
+                // Validate photos for each request and make them available in CRUD table
+                if (request.getTirePhotoUrls() != null && !request.getTirePhotoUrls().isEmpty()) {
+                    List<String> validPhotos = new ArrayList<>();
+                    for (String photo : request.getTirePhotoUrls()) {
+                        if (isValidBase64Image(photo)) {
+                            validPhotos.add(photo);
+                        } else {
+                            logger.warn("Invalid photo detected in TTO request {}", request.getId());
+                        }
+                    }
+                    request.setTirePhotoUrls(validPhotos);
+                    request.setPhotoUrls(validPhotos);
+                    
+                    if (!validPhotos.isEmpty()) {
+                        requestsWithPhotos++;
+                        totalPhotos += validPhotos.size();
+                    }
+                }
+            }
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("requests", requests);
+            response.put("totalRequests", totalRequests);
+            response.put("requestsWithPhotos", requestsWithPhotos);
+            response.put("totalPhotos", totalPhotos);
+            response.put("dashboard", "TTO");
+            response.put("tableView", "withPhotos");
+            
+            logger.info("TTO CRUD table: {} requests, {} with photos, {} total photos displayed", 
+                       totalRequests, requestsWithPhotos, totalPhotos);
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Error getting TTO requests with photos for table: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // Optimized TTO dashboard for fast table loading with photos support
     @GetMapping("/tto/requests/fast")
     public ResponseEntity<Map<String, Object>> getRequestsForTTOFast(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
-            @RequestParam(defaultValue = "false") boolean includePhotos) {
+            @RequestParam(defaultValue = "true") boolean includePhotos) {
         
         try {
             org.springframework.data.domain.Pageable pageable = 
@@ -283,13 +371,46 @@ public class TireRequestController {
                 org.springframework.data.domain.Page<TireRequest> requestPage = 
                     tireRequestService.getRequestsByStatusesPaginated(statuses, pageable);
                 
+                // Process each request to consolidate and validate photos for TTO table
+                List<TireRequest> processedRequests = new ArrayList<>();
+                int totalPhotos = 0;
+                int requestsWithPhotos = 0;
+                
+                for (TireRequest request : requestPage.getContent()) {
+                    consolidatePhotos(request);
+                    
+                    // Validate photos for TTO dashboard table display
+                    if (request.getTirePhotoUrls() != null && !request.getTirePhotoUrls().isEmpty()) {
+                        List<String> validPhotos = new ArrayList<>();
+                        for (String photo : request.getTirePhotoUrls()) {
+                            if (isValidBase64Image(photo)) {
+                                validPhotos.add(photo);
+                            }
+                        }
+                        request.setTirePhotoUrls(validPhotos);
+                        request.setPhotoUrls(validPhotos);
+                        
+                        if (!validPhotos.isEmpty()) {
+                            requestsWithPhotos++;
+                            totalPhotos += validPhotos.size();
+                        }
+                    }
+                    processedRequests.add(request);
+                }
+                
                 Map<String, Object> response = new HashMap<>();
-                response.put("content", requestPage.getContent());
+                response.put("content", processedRequests);
                 response.put("totalElements", requestPage.getTotalElements());
                 response.put("totalPages", requestPage.getTotalPages());
                 response.put("currentPage", page);
                 response.put("size", size);
                 response.put("hasPhotos", true);
+                response.put("totalPhotos", totalPhotos);
+                response.put("requestsWithPhotos", requestsWithPhotos);
+                response.put("dashboard", "TTO");
+                
+                logger.info("TTO fast load with photos: {} requests on page {} of {}, {} photos total", 
+                           processedRequests.size(), page + 1, requestPage.getTotalPages(), totalPhotos);
                 
                 return ResponseEntity.ok(response);
             } else {
@@ -303,8 +424,9 @@ public class TireRequestController {
                 response.put("currentPage", page);
                 response.put("size", size);
                 response.put("hasPhotos", false);
+                response.put("dashboard", "TTO");
                 
-                logger.info("TTO fast load: {} requests on page {} of {}", 
+                logger.info("TTO fast load without photos: {} requests on page {} of {}", 
                            requestPage.getContent().size(), page + 1, requestPage.getTotalPages());
                 
                 return ResponseEntity.ok(response);
