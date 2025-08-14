@@ -408,6 +408,19 @@ public class TireRequestController {
                 response.put("totalPhotos", totalPhotos);
                 response.put("requestsWithPhotos", requestsWithPhotos);
                 response.put("dashboard", "TTO");
+                response.put("photoViewEnabled", true);
+                response.put("tableDisplayMode", "withPhotos");
+                
+                // Add photo count mapping for each request for CRUD table
+                Map<String, Integer> photoCountMap = new HashMap<>();
+                for (TireRequest request : processedRequests) {
+                    if (request.getTirePhotoUrls() != null) {
+                        photoCountMap.put(request.getId(), request.getTirePhotoUrls().size());
+                    } else {
+                        photoCountMap.put(request.getId(), 0);
+                    }
+                }
+                response.put("photoCountMapping", photoCountMap);
                 
                 logger.info("TTO fast load with photos: {} requests on page {} of {}, {} photos total", 
                            processedRequests.size(), page + 1, requestPage.getTotalPages(), totalPhotos);
@@ -559,9 +572,104 @@ public class TireRequestController {
         }
     }
 
-    // TTO specific endpoint to view photos for a request
+    // TTO specific endpoint to view photos for a request in CRUD table
     @GetMapping("/tto/{id}/photos")
     public ResponseEntity<Map<String, Object>> getTTORequestPhotos(@PathVariable String id) {
+        try {
+            TireRequest request = tireRequestService.getTireRequestById(id).orElse(null);
+            if (request == null) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            // Ensure photos are consolidated and validated for TTO CRUD table display
+            consolidatePhotos(request);
+            
+            List<String> validPhotos = new ArrayList<>();
+            if (request.getTirePhotoUrls() != null) {
+                for (String photo : request.getTirePhotoUrls()) {
+                    if (isValidBase64Image(photo)) {
+                        validPhotos.add(photo);
+                    }
+                }
+            }
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("requestId", id);
+            response.put("vehicleNo", request.getVehicleNo());
+            response.put("vehicleType", request.getVehicleType());
+            response.put("vehicleBrand", request.getVehicleBrand());
+            response.put("photos", validPhotos);
+            response.put("photoCount", validPhotos.size());
+            response.put("status", request.getStatus());
+            response.put("viewedBy", "TTO");
+            response.put("tableDisplay", true);
+            response.put("hasValidPhotos", !validPhotos.isEmpty());
+            
+            logger.info("TTO CRUD table viewing {} photos for request {} (Vehicle: {})", 
+                       validPhotos.size(), id, request.getVehicleNo());
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Error getting TTO photos for request {}: {}", id, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // TTO CRUD table photo thumbnails endpoint for better performance
+    @GetMapping("/tto/{id}/photos/thumbnails")
+    public ResponseEntity<Map<String, Object>> getTTORequestPhotoThumbnails(@PathVariable String id) {
+        try {
+            TireRequest request = tireRequestService.getTireRequestById(id).orElse(null);
+            if (request == null) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            // Ensure photos are consolidated and validated
+            consolidatePhotos(request);
+            
+            List<Map<String, Object>> photoThumbnails = new ArrayList<>();
+            if (request.getTirePhotoUrls() != null) {
+                for (int i = 0; i < request.getTirePhotoUrls().size(); i++) {
+                    String photo = request.getTirePhotoUrls().get(i);
+                    if (isValidBase64Image(photo)) {
+                        Map<String, Object> thumbnail = new HashMap<>();
+                        thumbnail.put("index", i);
+                        thumbnail.put("preview", photo.length() > 100 ? photo.substring(0, 100) + "..." : photo);
+                        thumbnail.put("hasFullImage", true);
+                        thumbnail.put("size", photo.length());
+                        photoThumbnails.add(thumbnail);
+                    }
+                }
+            }
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("requestId", id);
+            response.put("vehicleNo", request.getVehicleNo());
+            response.put("thumbnails", photoThumbnails);
+            response.put("thumbnailCount", photoThumbnails.size());
+            response.put("status", request.getStatus());
+            response.put("viewType", "thumbnails");
+            response.put("tableDisplay", true);
+            
+            logger.info("TTO CRUD table thumbnails: {} thumbnails for request {} (Vehicle: {})", 
+                       photoThumbnails.size(), id, request.getVehicleNo());
+            
+            return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(300, TimeUnit.SECONDS))
+                .body(response);
+        } catch (Exception e) {
+            logger.error("Error getting TTO photo thumbnails for request {}: {}", id, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // TTO CRUD table single photo endpoint for modal or full view
+    @GetMapping("/tto/{id}/photos/{photoIndex}")
+    public ResponseEntity<Map<String, Object>> getTTORequestSinglePhoto(
+            @PathVariable String id, 
+            @PathVariable int photoIndex) {
         try {
             TireRequest request = tireRequestService.getTireRequestById(id).orElse(null);
             if (request == null) {
@@ -580,20 +688,104 @@ public class TireRequestController {
                 }
             }
             
+            if (photoIndex < 0 || photoIndex >= validPhotos.size()) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Invalid photo index", "availablePhotos", validPhotos.size()));
+            }
+            
+            String selectedPhoto = validPhotos.get(photoIndex);
+            
             Map<String, Object> response = new HashMap<>();
             response.put("requestId", id);
             response.put("vehicleNo", request.getVehicleNo());
-            response.put("photos", validPhotos);
-            response.put("photoCount", validPhotos.size());
+            response.put("photoIndex", photoIndex);
+            response.put("photo", selectedPhoto);
+            response.put("totalPhotos", validPhotos.size());
             response.put("status", request.getStatus());
-            response.put("viewedBy", "TTO");
+            response.put("viewType", "singlePhoto");
+            response.put("tableDisplay", true);
             
-            logger.info("TTO viewing {} photos for request {} (Vehicle: {})", 
-                       validPhotos.size(), id, request.getVehicleNo());
+            logger.info("TTO CRUD table single photo: index {} for request {} (Vehicle: {})", 
+                       photoIndex, id, request.getVehicleNo());
             
-            return ResponseEntity.ok(response);
+            return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(3600, TimeUnit.SECONDS))
+                .body(response);
         } catch (Exception e) {
-            logger.error("Error getting TTO photos for request {}: {}", id, e.getMessage());
+            logger.error("Error getting TTO single photo for request {} index {}: {}", id, photoIndex, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // TTO dashboard CRUD table photo status overview
+    @GetMapping("/tto/requests/photo-status")
+    public ResponseEntity<Map<String, Object>> getTTOPhotoStatusOverview(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        try {
+            org.springframework.data.domain.Pageable pageable = 
+                org.springframework.data.domain.PageRequest.of(page, size, 
+                    org.springframework.data.domain.Sort.by("id").descending());
+            
+            List<String> statuses = List.of("APPROVED", "MANAGER_APPROVED", "TTO_APPROVED", "TTO_REJECTED", "ENGINEER_APPROVED", "ENGINEER_REJECTED", "approved", "pending");
+            org.springframework.data.domain.Page<TireRequest> requestPage = 
+                tireRequestService.getRequestsByStatusesPaginated(statuses, pageable);
+            
+            List<Map<String, Object>> photoStatusList = new ArrayList<>();
+            int totalPhotos = 0;
+            int requestsWithPhotos = 0;
+            
+            for (TireRequest request : requestPage.getContent()) {
+                consolidatePhotos(request);
+                
+                Map<String, Object> requestStatus = new HashMap<>();
+                requestStatus.put("requestId", request.getId());
+                requestStatus.put("vehicleNo", request.getVehicleNo());
+                requestStatus.put("status", request.getStatus());
+                
+                List<String> validPhotos = new ArrayList<>();
+                if (request.getTirePhotoUrls() != null) {
+                    for (String photo : request.getTirePhotoUrls()) {
+                        if (isValidBase64Image(photo)) {
+                            validPhotos.add(photo);
+                        }
+                    }
+                }
+                
+                requestStatus.put("photoCount", validPhotos.size());
+                requestStatus.put("hasPhotos", !validPhotos.isEmpty());
+                requestStatus.put("photoViewUrl", "/api/tire-requests/tto/" + request.getId() + "/photos");
+                requestStatus.put("thumbnailUrl", "/api/tire-requests/tto/" + request.getId() + "/photos/thumbnails");
+                
+                if (!validPhotos.isEmpty()) {
+                    requestsWithPhotos++;
+                    totalPhotos += validPhotos.size();
+                }
+                
+                photoStatusList.add(requestStatus);
+            }
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("requests", photoStatusList);
+            response.put("totalElements", requestPage.getTotalElements());
+            response.put("totalPages", requestPage.getTotalPages());
+            response.put("currentPage", page);
+            response.put("size", size);
+            response.put("totalPhotos", totalPhotos);
+            response.put("requestsWithPhotos", requestsWithPhotos);
+            response.put("dashboard", "TTO");
+            response.put("viewType", "photoStatus");
+            response.put("tableDisplayReady", true);
+            
+            logger.info("TTO photo status overview: {} requests, {} with photos ({} total photos)", 
+                       photoStatusList.size(), requestsWithPhotos, totalPhotos);
+            
+            return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(120, TimeUnit.SECONDS))
+                .body(response);
+        } catch (Exception e) {
+            logger.error("Error getting TTO photo status overview: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", e.getMessage()));
         }
