@@ -268,7 +268,7 @@ public class TireRequestService {
         try {
             Query query = new Query(Criteria.where("email").is(email).and("password").is(password));
             @SuppressWarnings("unchecked")
-            Map<String, Object> employee = mongoTemplate.findOne(query, Map.class, "employees");
+            Map<String, Object> employee = mongoTemplate.findOne(query, Map.class, "employee");
             return employee;
         } catch (Exception e) {
             logger.error("Error finding employee by email and password: {}", e.getMessage(), e);
@@ -280,7 +280,7 @@ public class TireRequestService {
         try {
             Query query = new Query(Criteria.where("employeeId").is(employeeId).and("password").is(password));
             @SuppressWarnings("unchecked")
-            Map<String, Object> employee = mongoTemplate.findOne(query, Map.class, "employees");
+            Map<String, Object> employee = mongoTemplate.findOne(query, Map.class, "employee");
             return employee;
         } catch (Exception e) {
             logger.error("Error finding employee by employeeId and password: {}", e.getMessage(), e);
@@ -292,7 +292,7 @@ public class TireRequestService {
         try {
             Query query = new Query(Criteria.where("email").is(email));
             @SuppressWarnings("unchecked")
-            Map<String, Object> employee = mongoTemplate.findOne(query, Map.class, "employees");
+            Map<String, Object> employee = mongoTemplate.findOne(query, Map.class, "employee");
             return employee;
         } catch (Exception e) {
             logger.error("Error finding employee by email: {}", e.getMessage(), e);
