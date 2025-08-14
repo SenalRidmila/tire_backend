@@ -2,6 +2,7 @@ package com.example.tire_management.controller;
 
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -44,7 +46,39 @@ public class TireOrderController {
     // GET: All orders (Admin view)
     @GetMapping
     public ResponseEntity<List<TireOrder>> getAllOrders() {
-        return ResponseEntity.ok(tireOrderService.getAllOrders());
+        return ResponseEntity.ok()
+            .cacheControl(org.springframework.http.CacheControl.maxAge(30, java.util.concurrent.TimeUnit.SECONDS))
+            .body(tireOrderService.getAllOrders());
+    }
+
+    // Fast paginated endpoint for orders
+    @GetMapping("/fast")
+    public ResponseEntity<Map<String, Object>> getAllOrdersFast(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        
+        try {
+            org.springframework.data.domain.Pageable pageable = 
+                org.springframework.data.domain.PageRequest.of(page, size, 
+                    org.springframework.data.domain.Sort.by("id").descending());
+            
+            org.springframework.data.domain.Page<TireOrder> orderPage = 
+                tireOrderService.getAllOrdersPaginated(pageable);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("content", orderPage.getContent());
+            response.put("totalElements", orderPage.getTotalElements());
+            response.put("totalPages", orderPage.getTotalPages());
+            response.put("currentPage", page);
+            response.put("size", size);
+            
+            return ResponseEntity.ok()
+                .cacheControl(org.springframework.http.CacheControl.maxAge(30, java.util.concurrent.TimeUnit.SECONDS))
+                .body(response);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
     }
 
     // GET: Orders for a specific seller (vendorEmail) - Seller Dashboard

@@ -14,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -54,6 +55,56 @@ public class TireRequestService {
     // Get requests by multiple statuses (used for Manager/TTO/Engineer dashboards)
     public List<TireRequest> getRequestsByStatuses(List<String> statuses) {
         return tireRequestRepository.findByStatusIn(statuses);
+    }
+
+    // Optimized version without photos for faster table loading
+    public List<TireRequest> getRequestsByStatusesWithoutPhotos(List<String> statuses) {
+        return tireRequestRepository.findByStatusInWithoutPhotos(statuses);
+    }
+
+    // Paginated version for large datasets
+    public org.springframework.data.domain.Page<TireRequest> getRequestsByStatusesPaginated(
+            List<String> statuses, 
+            org.springframework.data.domain.Pageable pageable) {
+        return tireRequestRepository.findByStatusIn(statuses, pageable);
+    }
+
+    // Paginated version without photos for extremely fast loading
+    public org.springframework.data.domain.Page<TireRequest> getRequestsByStatusesPaginatedWithoutPhotos(
+            List<String> statuses, 
+            org.springframework.data.domain.Pageable pageable) {
+        return tireRequestRepository.findByStatusInWithoutPhotos(statuses, pageable);
+    }
+
+    // Get count for pagination info
+    public long getRequestsCountByStatuses(List<String> statuses) {
+        return tireRequestRepository.countByStatusIn(statuses);
+    }
+
+    // General pagination methods
+    public org.springframework.data.domain.Page<TireRequest> getRequestsPaginated(
+            org.springframework.data.domain.Pageable pageable) {
+        return tireRequestRepository.findAll(pageable);
+    }
+
+    public org.springframework.data.domain.Page<TireRequest> getRequestsPaginatedWithoutPhotos(
+            org.springframework.data.domain.Pageable pageable) {
+        // For all requests without photos, we'll use MongoTemplate for custom query
+        org.springframework.data.mongodb.core.query.Query query = 
+            new org.springframework.data.mongodb.core.query.Query();
+        query.fields().exclude("tirePhotoUrls").exclude("photoUrls");
+        
+        long total = mongoTemplate.count(query, TireRequest.class);
+        query.with(pageable);
+        
+        List<TireRequest> content = mongoTemplate.find(query, TireRequest.class);
+        
+        return new PageImpl<>(content, pageable, total);
+    }
+
+    // Get total count of all requests (for summary)
+    public long getTotalRequestsCount() {
+        return tireRequestRepository.count();
     }
 
 

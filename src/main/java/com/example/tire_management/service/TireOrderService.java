@@ -37,6 +37,12 @@ public class TireOrderService {
         return repository.findAll();
     }
 
+    // Paginated version for better performance
+    public org.springframework.data.domain.Page<TireOrder> getAllOrdersPaginated(
+            org.springframework.data.domain.Pageable pageable) {
+        return repository.findAll(pageable);
+    }
+
     // Get order by ID
     public Optional<TireOrder> getOrderById(String id) {
         return repository.findById(id);

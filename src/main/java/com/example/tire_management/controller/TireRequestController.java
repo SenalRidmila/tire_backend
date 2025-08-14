@@ -32,6 +32,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.CacheControl;
+
+import java.util.concurrent.TimeUnit;
 
 import com.example.tire_management.model.TireRequest;
 import com.example.tire_management.service.TireRequestService;
@@ -62,6 +65,99 @@ public class TireRequestController {
         
         logger.info("Retrieved {} tire requests with consolidated photos", requests.size());
         return requests;
+    }
+
+    // Fast endpoint for table loading without photos
+    @GetMapping("/fast")
+    public ResponseEntity<Map<String, Object>> getAllTireRequestsFast(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size,
+            @RequestParam(defaultValue = "false") boolean includePhotos) {
+        
+        try {
+            org.springframework.data.domain.Pageable pageable = 
+                org.springframework.data.domain.PageRequest.of(page, size, 
+                    org.springframework.data.domain.Sort.by("id").descending());
+            
+            if (includePhotos) {
+                org.springframework.data.domain.Page<TireRequest> requestPage = 
+                    tireRequestService.getRequestsPaginated(pageable);
+                
+                Map<String, Object> response = new HashMap<>();
+                response.put("content", requestPage.getContent());
+                response.put("totalElements", requestPage.getTotalElements());
+                response.put("totalPages", requestPage.getTotalPages());
+                response.put("currentPage", page);
+                response.put("size", size);
+                response.put("hasPhotos", true);
+                
+                return ResponseEntity.ok(response);
+            } else {
+                org.springframework.data.domain.Page<TireRequest> requestPage = 
+                    tireRequestService.getRequestsPaginatedWithoutPhotos(pageable);
+                
+                Map<String, Object> response = new HashMap<>();
+                response.put("content", requestPage.getContent());
+                response.put("totalElements", requestPage.getTotalElements());
+                response.put("totalPages", requestPage.getTotalPages());
+                response.put("currentPage", page);
+                response.put("size", size);
+                response.put("hasPhotos", false);
+                
+                logger.info("Fast load: {} requests on page {} of {} (without photos)", 
+                           requestPage.getContent().size(), page + 1, requestPage.getTotalPages());
+                
+                return ResponseEntity.ok()
+                    .cacheControl(CacheControl.maxAge(30, TimeUnit.SECONDS)
+                        .cachePublic())
+                    .body(response);
+            }
+        } catch (Exception e) {
+            logger.error("Error in fast load: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // Ultra-fast summary endpoint for dashboard counts only
+    @GetMapping("/summary/counts")
+    public ResponseEntity<Map<String, Object>> getDashboardCounts() {
+        try {
+            Map<String, Object> counts = new HashMap<>();
+            
+            // Manager counts
+            long managerCount = tireRequestService.getRequestsCountByStatuses(
+                List.of("pending", "PENDING", "MANAGER_APPROVED", "APPROVED"));
+            counts.put("managerRequests", managerCount);
+            
+            // TTO counts
+            long ttoCount = tireRequestService.getRequestsCountByStatuses(
+                List.of("APPROVED", "MANAGER_APPROVED", "TTO_APPROVED", "TTO_REJECTED", "ENGINEER_APPROVED", "ENGINEER_REJECTED", "approved", "pending"));
+            counts.put("ttoRequests", ttoCount);
+            
+            // Engineer counts
+            long engineerCount = tireRequestService.getRequestsCountByStatuses(
+                List.of("TTO_APPROVED", "ENGINEER_APPROVED", "ENGINEER_REJECTED"));
+            counts.put("engineerRequests", engineerCount);
+            
+            // Total count
+            long totalCount = tireRequestService.getTotalRequestsCount();
+            counts.put("totalRequests", totalCount);
+            
+            counts.put("timestamp", new Date().toString());
+            
+            logger.info("Dashboard counts: Manager={}, TTO={}, Engineer={}, Total={}", 
+                       managerCount, ttoCount, engineerCount, totalCount);
+            
+            return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(60, TimeUnit.SECONDS)
+                    .cachePublic())
+                .body(counts);
+        } catch (Exception e) {
+            logger.error("Error getting dashboard counts: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
     }
 
     @GetMapping("/{id}")
@@ -96,6 +192,57 @@ public class TireRequestController {
         return requests;
     }
 
+    // Optimized manager dashboard for fast table loading (without photos)
+    @GetMapping("/manager/requests/fast")
+    public ResponseEntity<Map<String, Object>> getRequestsForManagerFast(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "false") boolean includePhotos) {
+        
+        try {
+            org.springframework.data.domain.Pageable pageable = 
+                org.springframework.data.domain.PageRequest.of(page, size, 
+                    org.springframework.data.domain.Sort.by("id").descending());
+            
+            List<String> statuses = List.of("pending", "PENDING", "MANAGER_APPROVED", "APPROVED");
+            
+            if (includePhotos) {
+                org.springframework.data.domain.Page<TireRequest> requestPage = 
+                    tireRequestService.getRequestsByStatusesPaginated(statuses, pageable);
+                
+                Map<String, Object> response = new HashMap<>();
+                response.put("content", requestPage.getContent());
+                response.put("totalElements", requestPage.getTotalElements());
+                response.put("totalPages", requestPage.getTotalPages());
+                response.put("currentPage", page);
+                response.put("size", size);
+                response.put("hasPhotos", true);
+                
+                return ResponseEntity.ok(response);
+            } else {
+                org.springframework.data.domain.Page<TireRequest> requestPage = 
+                    tireRequestService.getRequestsByStatusesPaginatedWithoutPhotos(statuses, pageable);
+                
+                Map<String, Object> response = new HashMap<>();
+                response.put("content", requestPage.getContent());
+                response.put("totalElements", requestPage.getTotalElements());
+                response.put("totalPages", requestPage.getTotalPages());
+                response.put("currentPage", page);
+                response.put("size", size);
+                response.put("hasPhotos", false);
+                
+                logger.info("Manager fast load: {} requests on page {} of {}", 
+                           requestPage.getContent().size(), page + 1, requestPage.getTotalPages());
+                
+                return ResponseEntity.ok(response);
+            }
+        } catch (Exception e) {
+            logger.error("Error in manager fast load: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
     // TTO dashboard – DO NOT hide after TTO action; show all relevant
     @GetMapping("/tto/requests")
     public List<TireRequest> getRequestsForTTO() {
@@ -118,6 +265,57 @@ public class TireRequestController {
         return requests;
     }
 
+    // Optimized TTO dashboard for fast table loading
+    @GetMapping("/tto/requests/fast")
+    public ResponseEntity<Map<String, Object>> getRequestsForTTOFast(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "false") boolean includePhotos) {
+        
+        try {
+            org.springframework.data.domain.Pageable pageable = 
+                org.springframework.data.domain.PageRequest.of(page, size, 
+                    org.springframework.data.domain.Sort.by("id").descending());
+            
+            List<String> statuses = List.of("APPROVED", "MANAGER_APPROVED", "TTO_APPROVED", "TTO_REJECTED", "ENGINEER_APPROVED", "ENGINEER_REJECTED", "approved", "pending");
+            
+            if (includePhotos) {
+                org.springframework.data.domain.Page<TireRequest> requestPage = 
+                    tireRequestService.getRequestsByStatusesPaginated(statuses, pageable);
+                
+                Map<String, Object> response = new HashMap<>();
+                response.put("content", requestPage.getContent());
+                response.put("totalElements", requestPage.getTotalElements());
+                response.put("totalPages", requestPage.getTotalPages());
+                response.put("currentPage", page);
+                response.put("size", size);
+                response.put("hasPhotos", true);
+                
+                return ResponseEntity.ok(response);
+            } else {
+                org.springframework.data.domain.Page<TireRequest> requestPage = 
+                    tireRequestService.getRequestsByStatusesPaginatedWithoutPhotos(statuses, pageable);
+                
+                Map<String, Object> response = new HashMap<>();
+                response.put("content", requestPage.getContent());
+                response.put("totalElements", requestPage.getTotalElements());
+                response.put("totalPages", requestPage.getTotalPages());
+                response.put("currentPage", page);
+                response.put("size", size);
+                response.put("hasPhotos", false);
+                
+                logger.info("TTO fast load: {} requests on page {} of {}", 
+                           requestPage.getContent().size(), page + 1, requestPage.getTotalPages());
+                
+                return ResponseEntity.ok(response);
+            }
+        } catch (Exception e) {
+            logger.error("Error in TTO fast load: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
     // Engineer dashboard – if engineers only see TTO approved ones
     @GetMapping("/engineer/requests")
     public List<TireRequest> getRequestsForEngineer() {
@@ -136,6 +334,57 @@ public class TireRequestController {
         
         logger.info("Retrieved {} engineer requests with {} total photos", requests.size(), totalPhotos);
         return requests;
+    }
+
+    // Optimized Engineer dashboard for fast table loading
+    @GetMapping("/engineer/requests/fast")
+    public ResponseEntity<Map<String, Object>> getRequestsForEngineerFast(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "false") boolean includePhotos) {
+        
+        try {
+            org.springframework.data.domain.Pageable pageable = 
+                org.springframework.data.domain.PageRequest.of(page, size, 
+                    org.springframework.data.domain.Sort.by("id").descending());
+            
+            List<String> statuses = List.of("TTO_APPROVED", "ENGINEER_APPROVED", "ENGINEER_REJECTED");
+            
+            if (includePhotos) {
+                org.springframework.data.domain.Page<TireRequest> requestPage = 
+                    tireRequestService.getRequestsByStatusesPaginated(statuses, pageable);
+                
+                Map<String, Object> response = new HashMap<>();
+                response.put("content", requestPage.getContent());
+                response.put("totalElements", requestPage.getTotalElements());
+                response.put("totalPages", requestPage.getTotalPages());
+                response.put("currentPage", page);
+                response.put("size", size);
+                response.put("hasPhotos", true);
+                
+                return ResponseEntity.ok(response);
+            } else {
+                org.springframework.data.domain.Page<TireRequest> requestPage = 
+                    tireRequestService.getRequestsByStatusesPaginatedWithoutPhotos(statuses, pageable);
+                
+                Map<String, Object> response = new HashMap<>();
+                response.put("content", requestPage.getContent());
+                response.put("totalElements", requestPage.getTotalElements());
+                response.put("totalPages", requestPage.getTotalPages());
+                response.put("currentPage", page);
+                response.put("size", size);
+                response.put("hasPhotos", false);
+                
+                logger.info("Engineer fast load: {} requests on page {} of {}", 
+                           requestPage.getContent().size(), page + 1, requestPage.getTotalPages());
+                
+                return ResponseEntity.ok(response);
+            }
+        } catch (Exception e) {
+            logger.error("Error in Engineer fast load: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
     }
 
     // Additional endpoint for manager dashboard with photo validation
