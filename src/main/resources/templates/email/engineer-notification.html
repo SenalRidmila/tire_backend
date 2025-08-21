@@ -85,7 +85,7 @@
             <strong>Technical Action Required Immediately</strong>
             <p>A tire replacement request has been fully approved and needs your attention.</p>
             <p>
-                <a href="http://localhost:3001/engineer-dashboard?requestId=[[${request.id}]]"
+                <a th:href="${requestReviewUrl}"
                     style="display: inline-block; background-color: #0e4194; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
                     🔧 View Request in Engineer Dashboard
                 </a>
@@ -96,7 +96,7 @@
             <p style="text-align:center; margin-bottom: 10px;">
                 Click the button below to access the Engineer Dashboard and process this request:
             </p>
-            <a th:href="@{http://localhost:3001/engineer-dashboard(requestId=${request.id})}" class="action-button">
+            <a th:href="${engineerDashboardUrl}" class="action-button">
                 🔧 Access Engineer Dashboard
             </a>
         </div>
@@ -162,7 +162,7 @@
             </div>
         </div>
         <div class="action-button-center">
-            <a th:href="@{http://localhost:3001/engineer-dashboard(requestId=${request.id})}" class="action-button">
+            <a th:href="${requestReviewUrl}" class="action-button">
                 🔧 Access Engineer Dashboard
             </a>
         </div>
