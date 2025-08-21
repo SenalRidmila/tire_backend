@@ -194,7 +194,7 @@ public class EmailService {
             Context context = new Context();
             context.setVariable("requestId", request.getId());
             context.setVariable("request", request);
-            context.setVariable("ttoDashboardUrl", "https://tire-frontend.vercel.app/tto?requestId=" + request.getId());
+            context.setVariable("ttoDashboardUrl", "https://tire-frontend.vercel.app/tto/view-request?id=" + request.getId());
 
             // Process the template
             String emailContent = templateEngine.process("email/tto-approval-notification", context);
