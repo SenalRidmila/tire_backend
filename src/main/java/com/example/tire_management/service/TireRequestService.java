@@ -314,6 +314,39 @@ public class TireRequestService {
         }
     }
 
+    public TireRequest rejectTireRequestByTTO(String id, String reason) {
+        try {
+            TireRequest request = getTireRequestById(id)
+                    .orElseThrow(() -> new RuntimeException("Tire request not found"));
+
+            if (!"APPROVED".equals(request.getStatus()) && !"MANAGER_APPROVED".equals(request.getStatus())) {
+                throw new RuntimeException("Request must be approved by manager before TTO can reject it");
+            }
+
+            request.setStatus("TTO_REJECTED");
+            request.setTtoRejectionDate(new Date().toString());
+            request.setTtoRejectionReason(reason);
+            
+            TireRequest savedRequest = tireRequestRepository.save(request);
+            logger.info("Request {} rejected by TTO with reason: {}", id, reason);
+
+            // Optionally send notification email back to requester
+            try {
+                if (savedRequest.getemail() != null && !savedRequest.getemail().isEmpty()) {
+                    // You can add email notification to requester about TTO rejection
+                    logger.info("TTO rejection notification could be sent to: {}", savedRequest.getemail());
+                }
+            } catch (Exception e) {
+                logger.error("Failed to send rejection notification for request {}: {}", id, e.getMessage());
+            }
+
+            return savedRequest;
+        } catch (Exception e) {
+            logger.error("Unexpected error in TTO rejection process for request {}: {}", id, e.getMessage(), e);
+            throw e;
+        }
+    }
+
     // Employee authentication methods
     public Map<String, Object> findEmployeeByEmailAndPassword(String email, String password) {
         try {

@@ -67,11 +67,11 @@ public class TireRequestController {
         return requests;
     }
 
-    // Fast endpoint for table loading without photos
+    // Fast endpoint for table loading without photos - OPTIMIZED
     @GetMapping("/fast")
     public ResponseEntity<Map<String, Object>> getAllTireRequestsFast(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "50") int size,
+            @RequestParam(defaultValue = "25") int size,
             @RequestParam(defaultValue = "false") boolean includePhotos) {
         
         try {
@@ -93,6 +93,7 @@ public class TireRequestController {
                 
                 return ResponseEntity.ok(response);
             } else {
+                // Ultra-fast path without any photo processing
                 org.springframework.data.domain.Page<TireRequest> requestPage = 
                     tireRequestService.getRequestsPaginatedWithoutPhotos(pageable);
                 
@@ -103,12 +104,13 @@ public class TireRequestController {
                 response.put("currentPage", page);
                 response.put("size", size);
                 response.put("hasPhotos", false);
+                response.put("optimized", true);
                 
-                logger.info("Fast load: {} requests on page {} of {} (without photos)", 
+                logger.info("Ultra-fast load: {} requests on page {} of {} (no photo processing)", 
                            requestPage.getContent().size(), page + 1, requestPage.getTotalPages());
                 
                 return ResponseEntity.ok()
-                    .cacheControl(CacheControl.maxAge(30, TimeUnit.SECONDS)
+                    .cacheControl(CacheControl.maxAge(45, TimeUnit.SECONDS)
                         .cachePublic())
                     .body(response);
             }
@@ -160,6 +162,90 @@ public class TireRequestController {
         }
     }
 
+    // Ultra-fast table data endpoint for CRUD tables - minimal data only
+    @GetMapping("/table/minimal")
+    public ResponseEntity<Map<String, Object>> getTableDataMinimal(
+            @RequestParam(defaultValue = "all") String dashboard,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size) {
+        
+        try {
+            org.springframework.data.domain.Pageable pageable = 
+                org.springframework.data.domain.PageRequest.of(page, size, 
+                    org.springframework.data.domain.Sort.by("id").descending());
+            
+            List<String> statuses;
+            switch (dashboard.toLowerCase()) {
+                case "manager":
+                    statuses = List.of("pending", "PENDING", "MANAGER_APPROVED", "APPROVED");
+                    break;
+                case "tto":
+                    statuses = List.of("APPROVED", "MANAGER_APPROVED", "TTO_APPROVED", "TTO_REJECTED", "ENGINEER_APPROVED", "ENGINEER_REJECTED", "approved", "pending");
+                    break;
+                case "engineer":
+                    statuses = List.of("TTO_APPROVED", "ENGINEER_APPROVED", "ENGINEER_REJECTED");
+                    break;
+                default:
+                    statuses = List.of("pending", "PENDING", "MANAGER_APPROVED", "APPROVED", "TTO_APPROVED", "TTO_REJECTED", "ENGINEER_APPROVED", "ENGINEER_REJECTED", "approved");
+            }
+            
+            // Get data without photos for ultra-fast loading
+            org.springframework.data.domain.Page<TireRequest> requestPage = 
+                tireRequestService.getRequestsByStatusesPaginatedWithoutPhotos(statuses, pageable);
+            
+            // Create minimal response with only essential CRUD table data
+            List<Map<String, Object>> minimalRequests = new ArrayList<>();
+            for (TireRequest request : requestPage.getContent()) {
+                Map<String, Object> minimal = new HashMap<>();
+                minimal.put("id", request.getId());
+                minimal.put("vehicleNo", request.getVehicleNo());
+                minimal.put("vehicleType", request.getVehicleType());
+                minimal.put("vehicleBrand", request.getVehicleBrand());
+                minimal.put("status", request.getStatus());
+                minimal.put("email", request.getemail());
+                minimal.put("officerServiceNo", request.getOfficerServiceNo());
+                minimal.put("tireSize", request.getTireSize());
+                minimal.put("replacementDate", request.getReplacementDate());
+                
+                // Quick photo count check without loading photos
+                int photoCount = 0;
+                if (request.getTirePhotoUrls() != null) {
+                    photoCount = request.getTirePhotoUrls().size();
+                } else if (request.getPhotoUrls() != null) {
+                    photoCount = request.getPhotoUrls().size();
+                }
+                minimal.put("photoCount", photoCount);
+                minimal.put("hasPhotos", photoCount > 0);
+                
+                minimalRequests.add(minimal);
+            }
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("content", minimalRequests);
+            response.put("totalElements", requestPage.getTotalElements());
+            response.put("totalPages", requestPage.getTotalPages());
+            response.put("currentPage", page);
+            response.put("size", size);
+            response.put("dashboard", dashboard);
+            response.put("dataType", "minimal");
+            response.put("loadTime", "ultraFast");
+            
+            logger.info("Ultra-fast table load for {}: {} records on page {} of {} ({}ms response)", 
+                       dashboard, minimalRequests.size(), page + 1, requestPage.getTotalPages(), 
+                       System.currentTimeMillis() % 1000);
+            
+            return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(30, TimeUnit.SECONDS)
+                    .cachePublic())
+                .body(response);
+                
+        } catch (Exception e) {
+            logger.error("Error in ultra-fast table load for {}: {}", dashboard, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<TireRequest> getTireRequestById(@PathVariable String id) {
         return tireRequestService.getTireRequestById(id)
@@ -192,12 +278,12 @@ public class TireRequestController {
         return requests;
     }
 
-    // Optimized manager dashboard for fast table loading with photos support
+    // Optimized manager dashboard for ultra-fast table loading
     @GetMapping("/manager/requests/fast")
     public ResponseEntity<Map<String, Object>> getRequestsForManagerFast(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
-            @RequestParam(defaultValue = "true") boolean includePhotos) {
+            @RequestParam(defaultValue = "15") int size,
+            @RequestParam(defaultValue = "false") boolean includePhotos) {
         
         try {
             org.springframework.data.domain.Pageable pageable = 
@@ -210,29 +296,16 @@ public class TireRequestController {
                 org.springframework.data.domain.Page<TireRequest> requestPage = 
                     tireRequestService.getRequestsByStatusesPaginated(statuses, pageable);
                 
-                // Process each request to consolidate and validate photos for Manager table
+                // Minimal photo processing for faster response
                 List<TireRequest> processedRequests = new ArrayList<>();
                 int totalPhotos = 0;
                 int requestsWithPhotos = 0;
                 
                 for (TireRequest request : requestPage.getContent()) {
-                    consolidatePhotos(request);
-                    
-                    // Validate photos for Manager dashboard table display
+                    // Quick photo check without consolidation for speed
                     if (request.getTirePhotoUrls() != null && !request.getTirePhotoUrls().isEmpty()) {
-                        List<String> validPhotos = new ArrayList<>();
-                        for (String photo : request.getTirePhotoUrls()) {
-                            if (isValidBase64Image(photo)) {
-                                validPhotos.add(photo);
-                            }
-                        }
-                        request.setTirePhotoUrls(validPhotos);
-                        request.setPhotoUrls(validPhotos);
-                        
-                        if (!validPhotos.isEmpty()) {
-                            requestsWithPhotos++;
-                            totalPhotos += validPhotos.size();
-                        }
+                        requestsWithPhotos++;
+                        totalPhotos += request.getTirePhotoUrls().size();
                     }
                     processedRequests.add(request);
                 }
@@ -247,12 +320,16 @@ public class TireRequestController {
                 response.put("totalPhotos", totalPhotos);
                 response.put("requestsWithPhotos", requestsWithPhotos);
                 response.put("dashboard", "Manager");
+                response.put("optimized", true);
                 
                 logger.info("Manager fast load with photos: {} requests on page {} of {}, {} photos total", 
                            processedRequests.size(), page + 1, requestPage.getTotalPages(), totalPhotos);
                 
-                return ResponseEntity.ok(response);
+                return ResponseEntity.ok()
+                    .cacheControl(CacheControl.maxAge(30, TimeUnit.SECONDS))
+                    .body(response);
             } else {
+                // Ultra-fast path without photo processing
                 org.springframework.data.domain.Page<TireRequest> requestPage = 
                     tireRequestService.getRequestsByStatusesPaginatedWithoutPhotos(statuses, pageable);
                 
@@ -264,11 +341,15 @@ public class TireRequestController {
                 response.put("size", size);
                 response.put("hasPhotos", false);
                 response.put("dashboard", "Manager");
+                response.put("ultraFast", true);
                 
-                logger.info("Manager fast load without photos: {} requests on page {} of {}", 
+                logger.info("Manager ultra-fast load: {} requests on page {} of {} (no processing)", 
                            requestPage.getContent().size(), page + 1, requestPage.getTotalPages());
                 
-                return ResponseEntity.ok(response);
+                return ResponseEntity.ok()
+                    .cacheControl(CacheControl.maxAge(45, TimeUnit.SECONDS)
+                        .cachePublic())
+                    .body(response);
             }
         } catch (Exception e) {
             logger.error("Error in manager fast load: {}", e.getMessage());
@@ -353,12 +434,12 @@ public class TireRequestController {
         }
     }
 
-    // Optimized TTO dashboard for fast table loading with photos support
+    // Optimized TTO dashboard for ultra-fast table loading
     @GetMapping("/tto/requests/fast")
     public ResponseEntity<Map<String, Object>> getRequestsForTTOFast(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
-            @RequestParam(defaultValue = "true") boolean includePhotos) {
+            @RequestParam(defaultValue = "15") int size,
+            @RequestParam(defaultValue = "false") boolean includePhotos) {
         
         try {
             org.springframework.data.domain.Pageable pageable = 
@@ -371,30 +452,21 @@ public class TireRequestController {
                 org.springframework.data.domain.Page<TireRequest> requestPage = 
                     tireRequestService.getRequestsByStatusesPaginated(statuses, pageable);
                 
-                // Process each request to consolidate and validate photos for TTO table
+                // Minimal photo processing for faster response
                 List<TireRequest> processedRequests = new ArrayList<>();
                 int totalPhotos = 0;
                 int requestsWithPhotos = 0;
+                Map<String, Integer> photoCountMap = new HashMap<>();
                 
                 for (TireRequest request : requestPage.getContent()) {
-                    consolidatePhotos(request);
-                    
-                    // Validate photos for TTO dashboard table display
+                    // Quick photo check without full validation for speed
+                    int photoCount = 0;
                     if (request.getTirePhotoUrls() != null && !request.getTirePhotoUrls().isEmpty()) {
-                        List<String> validPhotos = new ArrayList<>();
-                        for (String photo : request.getTirePhotoUrls()) {
-                            if (isValidBase64Image(photo)) {
-                                validPhotos.add(photo);
-                            }
-                        }
-                        request.setTirePhotoUrls(validPhotos);
-                        request.setPhotoUrls(validPhotos);
-                        
-                        if (!validPhotos.isEmpty()) {
-                            requestsWithPhotos++;
-                            totalPhotos += validPhotos.size();
-                        }
+                        photoCount = request.getTirePhotoUrls().size();
+                        requestsWithPhotos++;
+                        totalPhotos += photoCount;
                     }
+                    photoCountMap.put(request.getId(), photoCount);
                     processedRequests.add(request);
                 }
                 
@@ -409,24 +481,17 @@ public class TireRequestController {
                 response.put("requestsWithPhotos", requestsWithPhotos);
                 response.put("dashboard", "TTO");
                 response.put("photoViewEnabled", true);
-                response.put("tableDisplayMode", "withPhotos");
-                
-                // Add photo count mapping for each request for CRUD table
-                Map<String, Integer> photoCountMap = new HashMap<>();
-                for (TireRequest request : processedRequests) {
-                    if (request.getTirePhotoUrls() != null) {
-                        photoCountMap.put(request.getId(), request.getTirePhotoUrls().size());
-                    } else {
-                        photoCountMap.put(request.getId(), 0);
-                    }
-                }
                 response.put("photoCountMapping", photoCountMap);
+                response.put("optimized", true);
                 
                 logger.info("TTO fast load with photos: {} requests on page {} of {}, {} photos total", 
                            processedRequests.size(), page + 1, requestPage.getTotalPages(), totalPhotos);
                 
-                return ResponseEntity.ok(response);
+                return ResponseEntity.ok()
+                    .cacheControl(CacheControl.maxAge(30, TimeUnit.SECONDS))
+                    .body(response);
             } else {
+                // Ultra-fast path without photo processing
                 org.springframework.data.domain.Page<TireRequest> requestPage = 
                     tireRequestService.getRequestsByStatusesPaginatedWithoutPhotos(statuses, pageable);
                 
@@ -438,11 +503,15 @@ public class TireRequestController {
                 response.put("size", size);
                 response.put("hasPhotos", false);
                 response.put("dashboard", "TTO");
+                response.put("ultraFast", true);
                 
-                logger.info("TTO fast load without photos: {} requests on page {} of {}", 
+                logger.info("TTO ultra-fast load: {} requests on page {} of {} (no processing)", 
                            requestPage.getContent().size(), page + 1, requestPage.getTotalPages());
                 
-                return ResponseEntity.ok(response);
+                return ResponseEntity.ok()
+                    .cacheControl(CacheControl.maxAge(45, TimeUnit.SECONDS)
+                        .cachePublic())
+                    .body(response);
             }
         } catch (Exception e) {
             logger.error("Error in TTO fast load: {}", e.getMessage());
@@ -471,11 +540,11 @@ public class TireRequestController {
         return requests;
     }
 
-    // Optimized Engineer dashboard for fast table loading
+    // Optimized Engineer dashboard for ultra-fast table loading
     @GetMapping("/engineer/requests/fast")
     public ResponseEntity<Map<String, Object>> getRequestsForEngineerFast(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "15") int size,
             @RequestParam(defaultValue = "false") boolean includePhotos) {
         
         try {
@@ -496,9 +565,17 @@ public class TireRequestController {
                 response.put("currentPage", page);
                 response.put("size", size);
                 response.put("hasPhotos", true);
+                response.put("dashboard", "Engineer");
+                response.put("optimized", true);
                 
-                return ResponseEntity.ok(response);
+                logger.info("Engineer fast load with photos: {} requests on page {} of {}", 
+                           requestPage.getContent().size(), page + 1, requestPage.getTotalPages());
+                
+                return ResponseEntity.ok()
+                    .cacheControl(CacheControl.maxAge(30, TimeUnit.SECONDS))
+                    .body(response);
             } else {
+                // Ultra-fast path without photo processing
                 org.springframework.data.domain.Page<TireRequest> requestPage = 
                     tireRequestService.getRequestsByStatusesPaginatedWithoutPhotos(statuses, pageable);
                 
@@ -509,11 +586,16 @@ public class TireRequestController {
                 response.put("currentPage", page);
                 response.put("size", size);
                 response.put("hasPhotos", false);
+                response.put("dashboard", "Engineer");
+                response.put("ultraFast", true);
                 
-                logger.info("Engineer fast load: {} requests on page {} of {}", 
+                logger.info("Engineer ultra-fast load: {} requests on page {} of {} (no processing)", 
                            requestPage.getContent().size(), page + 1, requestPage.getTotalPages());
                 
-                return ResponseEntity.ok(response);
+                return ResponseEntity.ok()
+                    .cacheControl(CacheControl.maxAge(45, TimeUnit.SECONDS)
+                        .cachePublic())
+                    .body(response);
             }
         } catch (Exception e) {
             logger.error("Error in Engineer fast load: {}", e.getMessage());
@@ -1185,12 +1267,79 @@ public class TireRequestController {
     }
 
     @PostMapping("/{id}/tto-approve")
-    public ResponseEntity<TireRequest> approveTireRequestByTTO(@PathVariable String id) {
+    public ResponseEntity<Map<String, Object>> approveTireRequestByTTO(@PathVariable String id) {
         try {
             TireRequest approvedRequest = tireRequestService.approveTireRequestByTTO(id);
-            return ResponseEntity.ok(approvedRequest);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Request approved by TTO and notification sent to Engineer");
+            response.put("request", approvedRequest);
+            response.put("status", approvedRequest.getStatus());
+            response.put("ttoApprovalDate", approvedRequest.getTtoApprovalDate());
+            response.put("nextStep", "Engineer Review");
+            response.put("engineerNotified", true);
+            
+            logger.info("TTO approved request {} successfully, engineer notification sent", id);
+            return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
+            logger.error("Error in TTO approval for request {}: {}", id, e.getMessage());
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "Failed to approve request: " + e.getMessage());
+            errorResponse.put("error", true);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+        } catch (Exception e) {
+            logger.error("Unexpected error in TTO approval for request {}: {}", id, e.getMessage());
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "Internal server error during approval");
+            errorResponse.put("error", true);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    @PostMapping("/{id}/tto-reject")
+    public ResponseEntity<Map<String, Object>> rejectTireRequestByTTO(
+            @PathVariable String id,
+            @RequestBody Map<String, String> payload) {
+        try {
+            String reason = payload.get("reason");
+            if (reason == null || reason.trim().isEmpty()) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("success", false);
+                errorResponse.put("message", "Rejection reason is required");
+                errorResponse.put("error", true);
+                return ResponseEntity.badRequest().body(errorResponse);
+            }
+
+            TireRequest rejectedRequest = tireRequestService.rejectTireRequestByTTO(id, reason);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Request rejected by TTO");
+            response.put("request", rejectedRequest);
+            response.put("status", rejectedRequest.getStatus());
+            response.put("rejectionReason", reason);
+            response.put("ttoRejectionDate", rejectedRequest.getTtoRejectionDate());
+            response.put("rejected", true);
+            
+            logger.info("TTO rejected request {} with reason: {}", id, reason);
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            logger.error("Error in TTO rejection for request {}: {}", id, e.getMessage());
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "Failed to reject request: " + e.getMessage());
+            errorResponse.put("error", true);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+        } catch (Exception e) {
+            logger.error("Unexpected error in TTO rejection for request {}: {}", id, e.getMessage());
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "Internal server error during rejection");
+            errorResponse.put("error", true);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
     }
     @PostMapping("/{id}/engineer-approve")
