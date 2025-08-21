@@ -237,12 +237,28 @@ public class TireRequestService {
 
     // Manager Approve
     public TireRequest approveTireRequest(String id) {
+        logger.info("🔥 MANAGER APPROVAL STARTED for request ID: {}", id);
+        
         TireRequest request = tireRequestRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Request not found"));
+                
+        logger.info("📋 Request found - Vehicle: {}, Current status: {}", request.getVehicleNo(), request.getStatus());
+        
         request.setStatus("MANAGER_APPROVED");
         request.setRejectionReason(null);
         TireRequest savedRequest = tireRequestRepository.save(request);
-        emailService.sendApprovalNotificationToTTO(savedRequest, ttoEmail);
+        
+        logger.info("✅ Request status updated to MANAGER_APPROVED");
+        logger.info("📧 TRIGGERING TTO EMAIL NOTIFICATION...");
+        logger.info("📬 TTO Email configured as: {}", ttoEmail);
+        
+        try {
+            emailService.sendApprovalNotificationToTTO(savedRequest, ttoEmail);
+            logger.info("🎯 TTO email service called successfully for request {}", id);
+        } catch (Exception e) {
+            logger.error("💥 CRITICAL ERROR: Failed to send TTO email for request {}: {}", id, e.getMessage(), e);
+        }
+        
         return savedRequest;
     }
 

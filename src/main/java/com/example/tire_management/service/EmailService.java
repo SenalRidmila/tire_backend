@@ -181,30 +181,44 @@ public class EmailService {
     }
 
     public void sendApprovalNotificationToTTO(TireRequest request, String ttoEmail) {
+        logger.info("🚀 STARTING TTO email send process for request ID: {}", request.getId());
+        logger.info("📧 TTO Email address: {}", ttoEmail);
+        
         try {
             // Create the email message
+            logger.debug("Creating MimeMessage...");
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
             // Set email properties
             helper.setTo(ttoEmail);
-            helper.setSubject("Tire Request Approved - Action Required #" + request.getId());
+            String subject = "Tire Request Approved - Action Required #" + request.getId();
+            helper.setSubject(subject);
+            logger.info("📬 Email TO: {} | SUBJECT: {}", ttoEmail, subject);
 
             // Create the model for template
             Context context = new Context();
             context.setVariable("requestId", request.getId());
             context.setVariable("request", request);
             context.setVariable("ttoDashboardUrl", "https://tire-frontend.vercel.app/tto/view-request?id=" + request.getId());
+            logger.debug("Template context prepared for request: {}", request.getId());
 
             // Process the template
+            logger.debug("Processing email template: email/tto-approval-notification");
             String emailContent = templateEngine.process("email/tto-approval-notification", context);
             helper.setText(emailContent, true);
-
+            
             // Send the email
+            logger.info("📤 SENDING EMAIL TO TTO...");
             mailSender.send(message);
+            logger.info("✅ SUCCESS: TTO email sent successfully for request {}", request.getId());
+            
         } catch (MessagingException e) {
-            logger.error("Failed to send approval notification to TTO", e);
-            // You might want to handle this exception more gracefully
+            logger.error("❌ FAILED: MessagingException while sending TTO email for request {}: {}", 
+                        request.getId(), e.getMessage(), e);
+        } catch (Exception e) {
+            logger.error("❌ FAILED: Unexpected error while sending TTO email for request {}: {}", 
+                        request.getId(), e.getMessage(), e);
         }
     }
 
