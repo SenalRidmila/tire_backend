@@ -520,24 +520,51 @@ public class TireRequestController {
         }
     }
 
-    // Engineer dashboard – if engineers only see TTO approved ones
+    // Engineer dashboard – Enhanced with better error handling and TTO approval support
     @GetMapping("/engineer/requests")
-    public List<TireRequest> getRequestsForEngineer() {
-        List<TireRequest> requests = tireRequestService.getRequestsByStatuses(List.of("TTO_APPROVED", "ENGINEER_APPROVED", "ENGINEER_REJECTED"));
-        
-        // Ensure photos are properly consolidated for each request
-        int totalPhotos = 0;
-        for (TireRequest request : requests) {
-            consolidatePhotos(request);
+    public ResponseEntity<Map<String, Object>> getRequestsForEngineer() {
+        try {
+            List<TireRequest> requests = tireRequestService.getRequestsByStatuses(
+                List.of("TTO_APPROVED", "ENGINEER_APPROVED", "ENGINEER_REJECTED"));
             
-            // Count photos for logging
-            if (request.getTirePhotoUrls() != null) {
-                totalPhotos += request.getTirePhotoUrls().size();
+            // Ensure photos are properly consolidated for each request
+            int totalPhotos = 0;
+            int ttoApprovedCount = 0;
+            for (TireRequest request : requests) {
+                consolidatePhotos(request);
+                
+                // Count TTO approved requests
+                if ("TTO_APPROVED".equals(request.getStatus())) {
+                    ttoApprovedCount++;
+                }
+                
+                // Count photos for logging
+                if (request.getTirePhotoUrls() != null) {
+                    totalPhotos += request.getTirePhotoUrls().size();
+                }
             }
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("requests", requests);
+            response.put("totalRequests", requests.size());
+            response.put("ttoApprovedCount", ttoApprovedCount);
+            response.put("totalPhotos", totalPhotos);
+            response.put("dashboard", "Engineer");
+            response.put("status", "success");
+            
+            logger.info("Engineer dashboard: Retrieved {} requests ({} TTO approved) with {} total photos", 
+                       requests.size(), ttoApprovedCount, totalPhotos);
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Error in engineer dashboard: {}", e.getMessage(), e);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", true);
+            errorResponse.put("message", "Failed to load engineer dashboard: " + e.getMessage());
+            errorResponse.put("requests", new ArrayList<>());
+            errorResponse.put("totalRequests", 0);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
-        
-        logger.info("Retrieved {} engineer requests with {} total photos", requests.size(), totalPhotos);
-        return requests;
     }
 
     // Optimized Engineer dashboard for ultra-fast table loading
@@ -554,9 +581,19 @@ public class TireRequestController {
             
             List<String> statuses = List.of("TTO_APPROVED", "ENGINEER_APPROVED", "ENGINEER_REJECTED");
             
+            logger.info("Engineer fast load request: page={}, size={}, includePhotos={}", page, size, includePhotos);
+            
             if (includePhotos) {
                 org.springframework.data.domain.Page<TireRequest> requestPage = 
                     tireRequestService.getRequestsByStatusesPaginated(statuses, pageable);
+                
+                // Count TTO approved requests for debugging
+                int ttoApprovedCount = 0;
+                for (TireRequest request : requestPage.getContent()) {
+                    if ("TTO_APPROVED".equals(request.getStatus())) {
+                        ttoApprovedCount++;
+                    }
+                }
                 
                 Map<String, Object> response = new HashMap<>();
                 response.put("content", requestPage.getContent());
@@ -567,9 +604,11 @@ public class TireRequestController {
                 response.put("hasPhotos", true);
                 response.put("dashboard", "Engineer");
                 response.put("optimized", true);
+                response.put("ttoApprovedCount", ttoApprovedCount);
+                response.put("statusFilter", statuses);
                 
-                logger.info("Engineer fast load with photos: {} requests on page {} of {}", 
-                           requestPage.getContent().size(), page + 1, requestPage.getTotalPages());
+                logger.info("Engineer fast load with photos: {} requests on page {} of {} ({} TTO approved)", 
+                           requestPage.getContent().size(), page + 1, requestPage.getTotalPages(), ttoApprovedCount);
                 
                 return ResponseEntity.ok()
                     .cacheControl(CacheControl.maxAge(30, TimeUnit.SECONDS))
@@ -578,6 +617,14 @@ public class TireRequestController {
                 // Ultra-fast path without photo processing
                 org.springframework.data.domain.Page<TireRequest> requestPage = 
                     tireRequestService.getRequestsByStatusesPaginatedWithoutPhotos(statuses, pageable);
+                
+                // Count TTO approved requests for debugging
+                int ttoApprovedCount = 0;
+                for (TireRequest request : requestPage.getContent()) {
+                    if ("TTO_APPROVED".equals(request.getStatus())) {
+                        ttoApprovedCount++;
+                    }
+                }
                 
                 Map<String, Object> response = new HashMap<>();
                 response.put("content", requestPage.getContent());
@@ -588,9 +635,11 @@ public class TireRequestController {
                 response.put("hasPhotos", false);
                 response.put("dashboard", "Engineer");
                 response.put("ultraFast", true);
+                response.put("ttoApprovedCount", ttoApprovedCount);
+                response.put("statusFilter", statuses);
                 
-                logger.info("Engineer ultra-fast load: {} requests on page {} of {} (no processing)", 
-                           requestPage.getContent().size(), page + 1, requestPage.getTotalPages());
+                logger.info("Engineer ultra-fast load: {} requests on page {} of {} ({} TTO approved, no processing)", 
+                           requestPage.getContent().size(), page + 1, requestPage.getTotalPages(), ttoApprovedCount);
                 
                 return ResponseEntity.ok()
                     .cacheControl(CacheControl.maxAge(45, TimeUnit.SECONDS)
@@ -598,7 +647,39 @@ public class TireRequestController {
                     .body(response);
             }
         } catch (Exception e) {
-            logger.error("Error in Engineer fast load: {}", e.getMessage());
+            logger.error("Error in Engineer fast load: {}", e.getMessage(), e);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", true);
+            errorResponse.put("message", "Failed to load engineer requests: " + e.getMessage());
+            errorResponse.put("content", new ArrayList<>());
+            errorResponse.put("totalElements", 0);
+            errorResponse.put("totalPages", 0);
+            errorResponse.put("dashboard", "Engineer");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    // Engineer debug endpoint to check TTO approved requests
+    @GetMapping("/engineer/debug/tto-approved")
+    public ResponseEntity<Map<String, Object>> debugTTOApprovedForEngineer() {
+        try {
+            List<TireRequest> allTTOApproved = tireRequestService.getRequestsByStatuses(List.of("TTO_APPROVED"));
+            
+            Map<String, Object> debug = new HashMap<>();
+            debug.put("totalTTOApproved", allTTOApproved.size());
+            debug.put("requests", allTTOApproved);
+            debug.put("timestamp", new Date().toString());
+            debug.put("engineerCanView", true);
+            
+            // Log some details
+            for (TireRequest request : allTTOApproved) {
+                logger.info("TTO Approved Request for Engineer: ID={}, Vehicle={}, Status={}, TTO Date={}", 
+                           request.getId(), request.getVehicleNo(), request.getStatus(), request.getTtoApprovalDate());
+            }
+            
+            return ResponseEntity.ok(debug);
+        } catch (Exception e) {
+            logger.error("Error in engineer TTO debug: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", e.getMessage()));
         }
