@@ -99,7 +99,12 @@
         
         <div class="action-button-center">
             <a th:href="${ttoDashboardUrl}" class="action-button">
-                🔧 Access TTO Dashboard
+                🔧 Access TTO Dashboard & Review Request
+            </a>
+            <br><br>
+            <a th:href="@{https://tire-frontend.vercel.app/tto/view-request(id=${request.id})}" 
+               style="display: inline-block; background-color: #28a745; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px; font-size: 14px;">
+                👁️ View Request Details Only
             </a>
         </div>
         
@@ -107,6 +112,7 @@
         <ul>
             <li>Review the approved request details above</li>
             <li>Click the button above to access your TTO Dashboard</li>
+            <li>The specific request will be highlighted for your review</li>
             <li>Process the tire replacement according to the specifications</li>
             <li>Update the request status once completed</li>
         </ul>
