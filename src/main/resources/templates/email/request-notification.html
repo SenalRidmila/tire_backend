@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tire Request Notification</title>
+    <style>
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        .header {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            border-radius: 5px;
+        }
+        .details {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .button {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        .footer {
+            margin-top: 20px;
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>New Tire Request #<span th:text="${requestId}"></span></h2>
+        </div>
+        
+        <p>Hello Manager,</p>
+        <p>A new tire request has been submitted and requires your review.</p>
+
+        <div class="details">
+            <h3>Request Details:</h3>
+            <p><strong>Vehicle Number:</strong> <span th:text="${request.vehicleNo}"></span></p>
+            <p><strong>Vehicle Type:</strong> <span th:text="${request.vehicleType}"></span></p>
+            <p><strong>Vehicle Brand:</strong> <span th:text="${request.vehicleBrand}"></span></p>
+            <p><strong>Tire Size:</strong> <span th:text="${request.tireSize}"></span></p>
+            <p><strong>Number of Tires:</strong> <span th:text="${request.noOfTires}"></span></p>
+            <p><strong>Cost Center:</strong> <span th:text="${request.costCenter}"></span></p>
+            <p><strong>Requested By:</strong> <span th:text="${request.officerServiceNo}"></span></p>
+            <p><strong>Comments:</strong> <span th:text="${request.comments}"></span></p>
+        </div>
+
+        <center>
+            <a th:href="${reviewUrl}" class="button">Review Request</a>
+        </center>
+
+        <div class="footer">
+            <p>This is an automated message from the SLT Tire Management System. Please do not reply to this email.</p>
+        </div>
+    </div>
+</body>
+
+</html>

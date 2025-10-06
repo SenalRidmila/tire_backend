@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Tire Order Approved</title>
+</head>
+
+<body style="font-family: Arial, sans-serif;">
+    <h2 style="color: #2e6c80;">🎉 Your Tire Request Has Been Fully Approved</h2>
+    <p>Hello,</p>
+    <p>Your tire request with ID <strong th:text="${requestId}">ID</strong> is now fully approved.</p>
+    <p>You can now proceed to order the tires by clicking the button below:</p>
+
+    <p>
+        <a th:href="${orderLink}"
+           style="display:inline-block; padding:10px 20px; background:#2e6c80; color:white; text-decoration:none; border-radius:5px;">
+            🚚 Order Tires Now
+        </a>
+    </p>
+
+    <p>Thank you for using SLT Tire Management System.</p>
+</body>
+
+</html>

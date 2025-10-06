@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>New Tire Order Request</title>
+</head>
+
+<body style="font-family: Arial, sans-serif;">
+    <h2 style="color: #2e6c80;">📦 New Tire Order Request</h2>
+    <p>Hello <strong th:text="${vendorName}">Vendor Name</strong>,</p>
+
+    <p>You have received a new tire order request. Here are the details:</p>
+
+    <ul>
+        <li><strong>Order ID:</strong> <span th:text="${orderId}">Order ID</span></li>
+        <li><strong>Vehicle No:</strong> <span th:text="${vehicleNo}">Vehicle No</span></li>
+        <li><strong>Tire Brand:</strong> <span th:text="${tireBrand}">Tire Brand</span></li>
+        <li><strong>Quantity:</strong> <span th:text="${quantity}">Quantity</span></li>
+        <li><strong>Location:</strong> <span th:text="${location}">Location</span></li>
+    </ul>
+
+    <p>Please click the button below to review and confirm or reject this order:</p>
+
+    <p>
+        <a href="http://localhost:3001/seller-dashboard/order/688111dbf1fb805f7e7f0930"
+            style="display:inline-block; padding:10px 20px; background:#2e6c80; color:white; text-decoration:none; border-radius:5px;">
+            Review Order
+        </a>
+    </p>
+
+    <p>Thank you,<br />SLT Tire Management System</p>
+</body>
+
+</html>

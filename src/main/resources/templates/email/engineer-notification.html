@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tire Replacement Request</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+
+        .container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .header {
+            background-color: #0e4194;
+            color: white;
+            text-align: center;
+            padding: 15px;
+            border-radius: 5px;
+
+        }
+
+        .request-details {
+            background-color: #f9f9f9;
+
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+
+        }
+
+        .detail-label {
+            font-weight: bold;
+            color: #555;
+        }
+
+        .detail-value {
+            color: #333;
+        }
+
+        .urgent-note {
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+            color: #856404;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .footer {
+            text-align: center;
+            color: #777;
+            font-size: 12px;
+
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚗 Urgent: Tire Replacement Request</h1>
+        </div>
+
+        <!-- ...existing code... -->
+        <div class="urgent-note">
+            <strong>Technical Action Required Immediately</strong>
+            <p>A tire replacement request has been fully approved and needs your attention.</p>
+            <p>
+                <a th:href="${requestReviewUrl}"
+                    style="display: inline-block; background-color: #0e4194; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+                    🔧 View Request in Engineer Dashboard
+                </a>
+            </p>
+        </div>
+        <!-- ...existing code... -->
+        <div class="action-button-center">
+            <p style="text-align:center; margin-bottom: 10px;">
+                Click the button below to access the Engineer Dashboard and process this request:
+            </p>
+            <a th:href="${engineerDashboardUrl}" class="action-button">
+                🔧 Access Engineer Dashboard
+            </a>
+        </div>
+        <!-- ...existing code... -->
+
+
+        <div class="request-details">
+            <h2>Request Details</h2>
+
+            <div class="detail-row">
+                <span class="detail-label">Request ID:</span>
+                <span class="detail-value" th:text="${request.id}">REQ-12345</span>
+            </div>
+
+            <div class="detail-row">
+                <span class="detail-label">Approval Date:</span>
+                <span class="detail-value" th:text="${approvalDate}">Current Date</span>
+            </div>
+
+            <div class="detail-row">
+                <span class="detail-label">Vehicle Number:</span>
+                <span class="detail-value" th:text="${request.vehicleNo}">SL-1234</span>
+            </div>
+
+            <div class="detail-row">
+                <span class="detail-label">Vehicle Type:</span>
+                <span class="detail-value" th:text="${request.vehicleType}">Bus</span>
+            </div>
+
+            <div class="detail-row">
+                <span class="detail-label">Vehicle Brand:</span>
+                <span class="detail-value" th:text="${request.vehicleBrand}">Toyota</span>
+            </div>
+
+            <div class="detail-row">
+                <span class="detail-label">Tire Size Required:</span>
+                <span class="detail-value" th:text="${request.tireSize}">205/65R15</span>
+            </div>
+
+            <div class="detail-row">
+                <span class="detail-label">Number of Tires:</span>
+                <span class="detail-value" th:text="${request.noOfTires}">4</span>
+            </div>
+
+            <div class="detail-row">
+                <span class="detail-label">Number of Tubes:</span>
+                <span class="detail-value" th:text="${request.noOfTubes}">4</span>
+            </div>
+
+            <div class="detail-row">
+                <span class="detail-label">Present KM Reading:</span>
+                <span class="detail-value" th:text="${request.presentKm}">50,000</span>
+            </div>
+
+            <div class="detail-row">
+                <span class="detail-label">Wear Indicator:</span>
+                <span class="detail-value" th:text="${request.wearIndicator}">Yes</span>
+            </div>
+
+            <div class="detail-row" th:if="${request.comments}">
+                <span class="detail-label">Additional Comments:</span>
+                <span class="detail-value" th:text="${request.comments}">Urgent replacement needed</span>
+            </div>
+        </div>
+        <div class="action-button-center">
+            <a th:href="${requestReviewUrl}" class="action-button">
+                🔧 Access Engineer Dashboard
+            </a>
+        </div>
+
+
+        <div class="footer">
+            <p>This is an automated notification from the SLT Tire Management System.</p>
+            <p>Please process this request as soon as possible.</p>
+        </div>
+    </div>
+</body>
+
+</html>
