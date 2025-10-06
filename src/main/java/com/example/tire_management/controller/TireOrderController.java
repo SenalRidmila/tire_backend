@@ -5,6 +5,9 @@ import java.util.Map;
 import java.util.HashMap;
 import java.util.Optional;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,13 +26,15 @@ import org.springframework.web.server.ResponseStatusException;
 import com.example.tire_management.model.TireOrder;
 import com.example.tire_management.repository.TireOrderRepository;
 import com.example.tire_management.repository.TireRequestRepository;
-import com.example.tire_management.service.EmailService;
 import com.example.tire_management.service.TireOrderService;
+import com.example.tire_management.service.EmailService;
 
 @RestController
 @RequestMapping("/api/tire-orders")
 @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:3001"})
 public class TireOrderController {
+
+    private static final Logger logger = LoggerFactory.getLogger(TireOrderController.class);
 
     @Autowired
     private TireOrderService tireOrderService;
@@ -100,6 +105,21 @@ public class TireOrderController {
     @PostMapping
     public ResponseEntity<TireOrder> createOrder(@RequestBody TireOrder order) {
         TireOrder created = tireOrderService.createOrder(order);
+        
+        // 📧 Send email notification to Seller
+        try {
+            emailService.sendTireOrderNotificationToSeller(
+                created.getVehicleNo() != null ? created.getVehicleNo() : "Unknown Vehicle",
+                created.getTireBrand() != null ? created.getTireBrand() : "Unknown Brand",
+                String.valueOf(created.getQuantity()),
+                created.getId()
+            );
+            logger.info("✅ Seller notification email sent for tire order: {}", created.getId());
+        } catch (Exception e) {
+            logger.error("❌ Failed to send Seller notification email for order: {}", created.getId(), e);
+            // Don't fail the order creation if email fails
+        }
+        
         return ResponseEntity.status(201).body(created);
     }
 

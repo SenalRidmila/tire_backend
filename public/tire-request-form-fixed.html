@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tire Request Form - Fixed Validation Issues</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #0e4194 0%, #1a5490 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .form-container {
+            padding: 40px;
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .required {
+            color: #e74c3c;
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            border-color: #0e4194;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(14, 65, 148, 0.1);
+        }
+        
+        .invalid {
+            border-color: #e74c3c !important;
+            box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.1) !important;
+        }
+        
+        .error-message {
+            color: #e74c3c;
+            font-size: 12px;
+            margin-top: 5px;
+            display: none;
+        }
+        
+        .char-counter {
+            font-size: 12px;
+            color: #666;
+            text-align: right;
+            margin-top: 5px;
+        }
+        
+        .file-upload {
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .file-upload:hover {
+            border-color: #0e4194;
+            background: #f8f9ff;
+        }
+        
+        .file-upload.dragover {
+            border-color: #0e4194;
+            background: #e8f0ff;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #0e4194 0%, #1a5490 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-top: 20px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(14, 65, 148, 0.3);
+        }
+        
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .validation-summary {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+            display: none;
+        }
+        
+        .validation-summary.error {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+        }
+        
+        .validation-summary.success {
+            background: #d4edda;
+            border-color: #c3e6cb;
+        }
+        
+        .validation-list {
+            list-style: none;
+            margin: 10px 0 0 0;
+        }
+        
+        .validation-list li {
+            padding: 5px 0;
+            color: #721c24;
+        }
+        
+        .validation-list li:before {
+            content: "• ";
+            color: #dc3545;
+            font-weight: bold;
+        }
+        
+        .auto-populated {
+            background: #e8f5e8 !important;
+            border-color: #28a745 !important;
+        }
+        
+        .auto-populated::after {
+            content: " ✓ Auto-filled";
+            color: #28a745;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .image-preview {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .preview-item {
+            position: relative;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .preview-item img {
+            width: 100%;
+            height: 120px;
+            object-fit: cover;
+        }
+        
+        .preview-item .remove-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .file-info {
+            padding: 8px;
+            font-size: 12px;
+            background: #f8f9fa;
+            color: #666;
+        }
+        
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .loading-spinner {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #0e4194;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .container {
+                margin: 10px;
+            }
+            
+            .form-container {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚗 Tire Request Form</h1>
+            <p>All QA validation issues have been fixed</p>
+        </div>
+        
+        <div class="form-container">
+            <div id="validationSummary" class="validation-summary">
+                <h3>Validation Results</h3>
+                <ul id="validationList" class="validation-list"></ul>
+            </div>
+            
+            <form id="tireRequestForm" enctype="multipart/form-data">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="vehicleNo">Vehicle Number <span class="required">*</span></label>
+                        <input type="text" id="vehicleNo" name="vehicleNo" maxlength="8" required>
+                        <div class="error-message">Vehicle number cannot exceed 8 characters</div>
+                        <div class="char-counter">0/8 characters</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="vehicleType">Vehicle Type</label>
+                        <select id="vehicleType" name="vehicleType">
+                            <option value="">Select Vehicle Type</option>
+                            <option value="Car">Car</option>
+                            <option value="Van">Van</option>
+                            <option value="Truck">Truck</option>
+                            <option value="Lorry">Lorry</option>
+                            <option value="Bus">Bus</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="vehicleBrand">Vehicle Brand</label>
+                        <input type="text" id="vehicleBrand" name="vehicleBrand">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="vehicleModel">Vehicle Model</label>
+                        <input type="text" id="vehicleModel" name="vehicleModel">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="userSection">User Section <span class="required">*</span></label>
+                    <select id="userSection" name="userSection" required>
+                        <option value="">Please select your section (Required)</option>
+                        <option value="IT">IT Department</option>
+                        <option value="HR">Human Resources</option>
+                        <option value="Finance">Finance Department</option>
+                        <option value="Operations">Operations</option>
+                        <option value="Marketing">Marketing</option>
+                        <option value="Engineering">Engineering</option>
+                    </select>
+                    <div class="error-message">User section is required and cannot be empty</div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="replacementDate">Last Replacement Date</label>
+                        <input type="date" id="replacementDate" name="replacementDate">
+                        <div class="error-message">Cannot set future dates for vehicles already requested during restricted periods</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="tireSize">Tire Size</label>
+                        <input type="text" id="tireSize" name="tireSize" placeholder="e.g., 215/60R16">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="noOfTires">Number of Tires <span class="required">*</span></label>
+                        <input type="number" id="noOfTires" name="noOfTires" min="1" max="50" required>
+                        <div class="error-message">Number of tires must be between 1 and 50</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="noOfTubes">Number of Tubes</label>
+                        <input type="number" id="noOfTubes" name="noOfTubes" min="0" max="50">
+                        <div class="error-message">Number of tubes must be between 0 and 50</div>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="costCenter">Cost Center</label>
+                        <input type="text" id="costCenter" name="costCenter" readonly>
+                        <small>This will be automatically filled based on your section</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="officerServiceNo">Officer Service Number</label>
+                        <input type="text" id="officerServiceNo" name="officerServiceNo" readonly>
+                        <small>This will be automatically filled from your profile</small>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" name="email" readonly>
+                    <small>This will be automatically filled from your profile</small>
+                    <div class="error-message">Please provide a valid email address</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="comments">Comments</label>
+                    <textarea id="comments" name="comments" rows="4" maxlength="500" 
+                              placeholder="Enter any additional comments (max 500 characters)"></textarea>
+                    <div class="char-counter">0/500 characters</div>
+                    <div class="error-message">Comments cannot exceed 500 characters</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="tirePhotos">Tire Photos (Max 5MB each)</label>
+                    <div class="file-upload" id="fileUpload">
+                        <p>📸 Drag and drop images here or click to select</p>
+                        <p style="font-size: 12px; color: #666; margin-top: 10px;">
+                            Only JPEG, PNG, and GIF formats are supported. Maximum 5MB per image.
+                        </p>
+                        <input type="file" id="tirePhotos" name="tirePhotos" multiple accept="image/*" style="display: none;">
+                    </div>
+                    <div id="imagePreview" class="image-preview"></div>
+                    <div class="error-message">High-resolution images detected. Please upload images with lower file size.</div>
+                </div>
+                
+                <button type="submit" class="btn" id="submitBtn">
+                    Submit Tire Request
+                </button>
+            </form>
+        </div>
+    </div>
+    
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p>Processing your request...</p>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const API_BASE = 'http://localhost:8080/api/tire-requests';
+        
+        // Form elements
+        const form = document.getElementById('tireRequestForm');
+        const validationSummary = document.getElementById('validationSummary');
+        const validationList = document.getElementById('validationList');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        
+        // Input elements
+        const vehicleNo = document.getElementById('vehicleNo');
+        const userSection = document.getElementById('userSection');
+        const replacementDate = document.getElementById('replacementDate');
+        const noOfTires = document.getElementById('noOfTires');
+        const noOfTubes = document.getElementById('noOfTubes');
+        const costCenter = document.getElementById('costCenter');
+        const officerServiceNo = document.getElementById('officerServiceNo');
+        const email = document.getElementById('email');
+        const comments = document.getElementById('comments');
+        const tirePhotos = document.getElementById('tirePhotos');
+        const fileUpload = document.getElementById('fileUpload');
+        const imagePreview = document.getElementById('imagePreview');
+        
+        // Validation state
+        let selectedFiles = [];
+        let validationErrors = [];
+        
+        // Initialize form
+        document.addEventListener('DOMContentLoaded', function() {
+            setupEventListeners();
+            setupFileUpload();
+            updateCharCounters();
+        });
+        
+        function setupEventListeners() {
+            // Vehicle number validation
+            vehicleNo.addEventListener('input', function() {
+                validateVehicleNumber();
+                updateCharCounter(this, 8);
+            });
+            
+            // User section change - auto-populate cost center
+            userSection.addEventListener('change', function() {
+                autoPopulateCostCenter();
+                validateUserSection();
+            });
+            
+            // Date validation
+            replacementDate.addEventListener('change', validateReplacementDate);
+            
+            // Tire quantity validation
+            noOfTires.addEventListener('input', validateTireQuantity);
+            noOfTubes.addEventListener('input', validateTubeQuantity);
+            
+            // Email validation
+            email.addEventListener('input', validateEmail);
+            
+            // Comments validation
+            comments.addEventListener('input', function() {
+                validateComments();
+                updateCharCounter(this, 500);
+            });
+            
+            // Form submission
+            form.addEventListener('submit', handleFormSubmit);
+        }
+        
+        function setupFileUpload() {
+            fileUpload.addEventListener('click', () => tirePhotos.click());
+            
+            fileUpload.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                this.classList.add('dragover');
+            });
+            
+            fileUpload.addEventListener('dragleave', function() {
+                this.classList.remove('dragover');
+            });
+            
+            fileUpload.addEventListener('drop', function(e) {
+                e.preventDefault();
+                this.classList.remove('dragover');
+                const files = Array.from(e.dataTransfer.files);
+                handleFileSelection(files);
+            });
+            
+            tirePhotos.addEventListener('change', function() {
+                const files = Array.from(this.files);
+                handleFileSelection(files);
+            });
+        }
+        
+        function validateVehicleNumber() {
+            const value = vehicleNo.value.trim();
+            const isValid = value.length > 0 && value.length <= 8;
+            
+            toggleValidation(vehicleNo, isValid, 'Vehicle number cannot exceed 8 characters');
+            return isValid;
+        }
+        
+        function validateUserSection() {
+            const isValid = userSection.value.trim() !== '';
+            toggleValidation(userSection, isValid, 'User section is required');
+            return isValid;
+        }
+        
+        function validateReplacementDate() {
+            const selectedDate = new Date(replacementDate.value);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            const isValid = !replacementDate.value || selectedDate <= today;
+            toggleValidation(replacementDate, isValid, 'Cannot set future dates for vehicles already requested');
+            return isValid;
+        }
+        
+        function validateTireQuantity() {
+            const value = parseInt(noOfTires.value);
+            const isValid = value >= 1 && value <= 50;
+            
+            toggleValidation(noOfTires, isValid, 'Number of tires must be between 1 and 50');
+            return isValid;
+        }
+        
+        function validateTubeQuantity() {
+            if (!noOfTubes.value) return true;
+            
+            const value = parseInt(noOfTubes.value);
+            const isValid = value >= 0 && value <= 50;
+            
+            toggleValidation(noOfTubes, isValid, 'Number of tubes must be between 0 and 50');
+            return isValid;
+        }
+        
+        function validateEmail() {
+            if (!email.value) return true;
+            
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            const isValid = emailRegex.test(email.value);
+            
+            toggleValidation(email, isValid, 'Please provide a valid email address');
+            return isValid;
+        }
+        
+        function validateComments() {
+            const isValid = comments.value.length <= 500;
+            toggleValidation(comments, isValid, 'Comments cannot exceed 500 characters');
+            return isValid;
+        }
+        
+        function validateImages() {
+            const errors = [];
+            
+            selectedFiles.forEach(file => {
+                if (file.size > 5 * 1024 * 1024) {
+                    errors.push(`Image "${file.name}" is too large (${formatFileSize(file.size)}). Maximum 5MB allowed.`);
+                }
+                
+                if (!file.type.startsWith('image/')) {
+                    errors.push(`File "${file.name}" is not a valid image format.`);
+                }
+            });
+            
+            const fileUploadGroup = fileUpload.closest('.form-group');
+            const errorDiv = fileUploadGroup.querySelector('.error-message');
+            
+            if (errors.length > 0) {
+                errorDiv.textContent = errors.join(' ');
+                errorDiv.style.display = 'block';
+                return false;
+            } else {
+                errorDiv.style.display = 'none';
+                return true;
+            }
+        }
+        
+        function toggleValidation(element, isValid, errorMessage) {
+            const errorDiv = element.closest('.form-group').querySelector('.error-message');
+            
+            if (isValid) {
+                element.classList.remove('invalid');
+                errorDiv.style.display = 'none';
+            } else {
+                element.classList.add('invalid');
+                errorDiv.textContent = errorMessage;
+                errorDiv.style.display = 'block';
+            }
+        }
+        
+        function updateCharCounter(element, maxLength) {
+            const counter = element.closest('.form-group').querySelector('.char-counter');
+            if (counter) {
+                const currentLength = element.value.length;
+                counter.textContent = `${currentLength}/${maxLength} characters`;
+                
+                if (currentLength > maxLength * 0.9) {
+                    counter.style.color = '#e74c3c';
+                } else if (currentLength > maxLength * 0.7) {
+                    counter.style.color = '#f39c12';
+                } else {
+                    counter.style.color = '#666';
+                }
+            }
+        }
+        
+        function updateCharCounters() {
+            updateCharCounter(vehicleNo, 8);
+            updateCharCounter(comments, 500);
+        }
+        
+        function autoPopulateCostCenter() {
+            const section = userSection.value;
+            const costCenterMap = {
+                'IT': 'IT-001',
+                'HR': 'HR-001', 
+                'Finance': 'FIN-001',
+                'Operations': 'OPS-001',
+                'Marketing': 'MKT-001',
+                'Engineering': 'ENG-001'
+            };
+            
+            if (section && costCenterMap[section]) {
+                costCenter.value = costCenterMap[section];
+                costCenter.classList.add('auto-populated');
+                
+                // Auto-populate officer service number and email (mock data)
+                const mockServiceNo = 'SVC-' + Math.floor(Math.random() * 10000);
+                const mockEmail = mockServiceNo.toLowerCase() + '@company.com';
+                
+                officerServiceNo.value = mockServiceNo;
+                officerServiceNo.classList.add('auto-populated');
+                
+                email.value = mockEmail;
+                email.classList.add('auto-populated');
+            }
+        }
+        
+        function handleFileSelection(files) {
+            selectedFiles = Array.from(files);
+            updateImagePreview();
+            validateImages();
+        }
+        
+        function updateImagePreview() {
+            imagePreview.innerHTML = '';
+            
+            selectedFiles.forEach((file, index) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const previewItem = document.createElement('div');
+                    previewItem.className = 'preview-item';
+                    previewItem.innerHTML = `
+                        <img src="${e.target.result}" alt="Preview">
+                        <button type="button" class="remove-btn" onclick="removeImage(${index})">&times;</button>
+                        <div class="file-info">
+                            ${file.name} (${formatFileSize(file.size)})
+                        </div>
+                    `;
+                    imagePreview.appendChild(previewItem);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        function removeImage(index) {
+            selectedFiles.splice(index, 1);
+            updateImagePreview();
+            validateImages();
+        }
+        
+        function formatFileSize(bytes) {
+            if (bytes >= 1024 * 1024) {
+                return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+            } else if (bytes >= 1024) {
+                return (bytes / 1024).toFixed(2) + ' KB';
+            } else {
+                return bytes + ' bytes';
+            }
+        }
+        
+        function showValidationSummary(errors, type = 'error') {
+            validationSummary.className = `validation-summary ${type}`;
+            validationSummary.style.display = 'block';
+            
+            validationList.innerHTML = '';
+            errors.forEach(error => {
+                const li = document.createElement('li');
+                li.textContent = error;
+                validationList.appendChild(li);
+            });
+            
+            // Scroll to validation summary
+            validationSummary.scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        function hideValidationSummary() {
+            validationSummary.style.display = 'none';
+        }
+        
+        function showLoading() {
+            loadingOverlay.style.display = 'flex';
+        }
+        
+        function hideLoading() {
+            loadingOverlay.style.display = 'none';
+        }
+        
+        async function handleFormSubmit(e) {
+            e.preventDefault();
+            
+            // Clear previous validation
+            hideValidationSummary();
+            
+            // Validate all fields
+            const isVehicleNoValid = validateVehicleNumber();
+            const isUserSectionValid = validateUserSection();
+            const isDateValid = validateReplacementDate();
+            const isTireQuantityValid = validateTireQuantity();
+            const isTubeQuantityValid = validateTubeQuantity();
+            const isEmailValid = validateEmail();
+            const isCommentsValid = validateComments();
+            const areImagesValid = validateImages();
+            
+            // Check if all validations passed
+            if (!isVehicleNoValid || !isUserSectionValid || !isDateValid || 
+                !isTireQuantityValid || !isTubeQuantityValid || !isEmailValid || 
+                !isCommentsValid || !areImagesValid) {
+                
+                showValidationSummary(['Please fix the validation errors above before submitting.']);
+                return;
+            }
+            
+            showLoading();
+            
+            try {
+                const formData = new FormData();
+                
+                // Add form fields
+                formData.append('vehicleNo', vehicleNo.value);
+                formData.append('vehicleType', document.getElementById('vehicleType').value);
+                formData.append('vehicleBrand', document.getElementById('vehicleBrand').value);
+                formData.append('vehicleModel', document.getElementById('vehicleModel').value);
+                formData.append('userSection', userSection.value);
+                formData.append('replacementDate', replacementDate.value);
+                formData.append('tireSize', document.getElementById('tireSize').value);
+                formData.append('noOfTires', noOfTires.value);
+                formData.append('noOfTubes', noOfTubes.value);
+                formData.append('costCenter', costCenter.value);
+                formData.append('officerServiceNo', officerServiceNo.value);
+                formData.append('email', email.value);
+                formData.append('comments', comments.value);
+                
+                // Add image files
+                selectedFiles.forEach(file => {
+                    formData.append('tirePhotos', file);
+                });
+                
+                const response = await fetch(`${API_BASE}`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showValidationSummary(['✅ Tire request submitted successfully!'], 'success');
+                    form.reset();
+                    selectedFiles = [];
+                    updateImagePreview();
+                    updateCharCounters();
+                } else {
+                    showValidationSummary(result.errors || [result.message || 'Submission failed']);
+                }
+                
+            } catch (error) {
+                console.error('Error submitting form:', error);
+                showValidationSummary(['Network error. Please check your connection and try again.']);
+            } finally {
+                hideLoading();
+            }
+        }
+        
+        // Global function for removing images (needed for onclick)
+        window.removeImage = removeImage;
+    </script>
+</body>
+</html>

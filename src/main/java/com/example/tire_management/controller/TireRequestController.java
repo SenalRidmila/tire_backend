@@ -40,6 +40,7 @@ import com.example.tire_management.model.TireRequest;
 import com.example.tire_management.service.TireRequestService;
 import com.example.tire_management.service.TireRequestValidationService;
 import com.example.tire_management.service.AzureTokenValidationService;
+import com.example.tire_management.service.EmailService;
 
 @CrossOrigin(origins = "*")
 @RestController
@@ -56,6 +57,9 @@ public class TireRequestController {
     
     @Autowired
     private AzureTokenValidationService azureTokenValidationService;
+    
+    @Autowired
+    private EmailService emailService;
 
     // ----------------- Common GETs -----------------
     @GetMapping
@@ -1321,10 +1325,24 @@ public class TireRequestController {
             TireRequest savedRequest = tireRequestService.createTireRequest(request);
             logger.info("Tire request created successfully with ID: {}", savedRequest.getId());
             
+            // 📧 Send email notification to HR Manager
+            try {
+                emailService.sendNewRequestNotificationToHR(
+                    savedRequest.getemail(), 
+                    savedRequest.getVehicleNo(), 
+                    savedRequest.getUserSection(), 
+                    savedRequest.getId()
+                );
+                logger.info("✅ HR notification email sent for request: {}", savedRequest.getId());
+            } catch (Exception e) {
+                logger.error("❌ Failed to send HR notification email for request: {}", savedRequest.getId(), e);
+                // Don't fail the request creation if email fails
+            }
+            
             Map<String, Object> successResponse = new HashMap<>();
             successResponse.put("success", true);
             successResponse.put("data", savedRequest);
-            successResponse.put("message", "Tire request created successfully");
+            successResponse.put("message", "Tire request created successfully and HR Manager has been notified");
             return ResponseEntity.ok(successResponse);
         } catch (Exception e) {
             logger.error("Error creating tire request: {}", e.getMessage(), e);
@@ -1493,7 +1511,22 @@ public class TireRequestController {
     @PostMapping("/{id}/approve")
     public ResponseEntity<TireRequest> approveTireRequest(@PathVariable String id) {
         try {
-            return ResponseEntity.ok(tireRequestService.approveTireRequest(id));
+            TireRequest approvedRequest = tireRequestService.approveTireRequest(id);
+            
+            // 📧 Send email notification to TTO Officer
+            try {
+                emailService.sendHRApprovalNotificationToTTO(
+                    approvedRequest.getVehicleNo(), 
+                    approvedRequest.getUserSection(), 
+                    approvedRequest.getId()
+                );
+                logger.info("✅ TTO notification email sent for HR approved request: {}", approvedRequest.getId());
+            } catch (Exception e) {
+                logger.error("❌ Failed to send TTO notification email for request: {}", approvedRequest.getId(), e);
+                // Don't fail the approval if email fails
+            }
+            
+            return ResponseEntity.ok(approvedRequest);
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }
@@ -1515,9 +1548,22 @@ public class TireRequestController {
         try {
             TireRequest approvedRequest = tireRequestService.approveTireRequestByTTO(id);
             
+            // 📧 Send email notification to Engineer
+            try {
+                emailService.sendTTOApprovalNotificationToEngineer(
+                    approvedRequest.getVehicleNo(), 
+                    approvedRequest.getUserSection(), 
+                    approvedRequest.getId()
+                );
+                logger.info("✅ Engineer notification email sent for TTO approved request: {}", approvedRequest.getId());
+            } catch (Exception e) {
+                logger.error("❌ Failed to send Engineer notification email for request: {}", approvedRequest.getId(), e);
+                // Don't fail the approval if email fails
+            }
+            
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
-            response.put("message", "Request approved by TTO and notification sent to Engineer");
+            response.put("message", "Request approved by TTO and Engineer has been notified");
             response.put("request", approvedRequest);
             response.put("status", approvedRequest.getStatus());
             response.put("ttoApprovalDate", approvedRequest.getTtoApprovalDate());
@@ -1588,8 +1634,34 @@ public class TireRequestController {
     }
     @PostMapping("/{id}/engineer-approve")
     public ResponseEntity<String> engineerApprove(@PathVariable String id) {
-        tireRequestService.approveByEngineer(id);
-        return ResponseEntity.ok("Request approved and email sent.");
+        try {
+            // Get the request details before approving
+            TireRequest request = tireRequestService.getTireRequestById(id);
+            if (request == null) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            // Approve the request
+            tireRequestService.approveByEngineer(id);
+            
+            // 📧 Send confirmation email to User
+            try {
+                emailService.sendEngineerApprovalConfirmationToUser(
+                    request.getemail(), 
+                    request.getVehicleNo(), 
+                    request.getId()
+                );
+                logger.info("✅ User confirmation email sent for Engineer approved request: {}", request.getId());
+            } catch (Exception e) {
+                logger.error("❌ Failed to send User confirmation email for request: {}", request.getId(), e);
+                // Don't fail the approval if email fails
+            }
+            
+            return ResponseEntity.ok("Request fully approved! User has been notified and can now proceed to tire ordering.");
+        } catch (Exception e) {
+            logger.error("Error in engineer approval for request {}: {}", id, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error processing approval");
+        }
     }
 
     @PostMapping("/{id}/engineer-reject")

@@ -306,4 +306,277 @@ public class EmailService {
     }
 
     
+    // 📧 1. Send email to HR Manager when new request is submitted
+    public void sendNewRequestNotificationToHR(String userEmail, String vehicleNo, String userSection, String requestId) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+            
+            helper.setTo("slthrmanager@gmail.com");
+            helper.setSubject("🚗 New Tire Request Submitted - " + vehicleNo);
+            
+            String htmlContent = String.format("""
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <style>
+                        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                        .header { background: linear-gradient(135deg, #007bff, #0056b3); color: white; padding: 20px; text-align: center; }
+                        .content { padding: 20px; background: #f8f9fa; }
+                        .details { background: white; padding: 15px; border-radius: 8px; margin: 10px 0; }
+                        .button { display: inline-block; background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin: 10px 0; }
+                        .footer { background: #6c757d; color: white; padding: 15px; text-align: center; font-size: 12px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h2>🚗 New Tire Request Notification</h2>
+                        <p>Sri Lanka Telecom - HR Management System</p>
+                    </div>
+                    <div class="content">
+                        <h3>📋 Request Details:</h3>
+                        <div class="details">
+                            <p><strong>Request ID:</strong> #%s</p>
+                            <p><strong>Vehicle Number:</strong> %s</p>
+                            <p><strong>User Section:</strong> %s</p>
+                            <p><strong>User Email:</strong> %s</p>
+                        </div>
+                        
+                        <a href="https://tire-frontend-main.vercel.app/hr-dashboard" class="button">
+                            🏢 Access HR Manager Dashboard
+                        </a>
+                    </div>
+                </body>
+                </html>
+            """, requestId, vehicleNo, userSection, userEmail);
+            
+            helper.setText(htmlContent, true);
+            mailSender.send(message);
+            
+            logger.info("✅ HR notification email sent successfully for request: {}", requestId);
+            
+        } catch (MessagingException e) {
+            logger.error("❌ Failed to send HR notification email for request: {}", requestId, e);
+        }
+    }
+    
+    // 📧 2. Send email to TTO Officer when HR approves
+    public void sendHRApprovalNotificationToTTO(String vehicleNo, String userSection, String requestId) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+            
+            helper.setTo("slttransportofficer@gmail.com");
+            helper.setSubject("✅ HR Approved - Tire Request " + vehicleNo);
+            
+            String htmlContent = String.format("""
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <style>
+                        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                        .header { background: linear-gradient(135deg, #28a745, #1e7e34); color: white; padding: 20px; text-align: center; }
+                        .content { padding: 20px; background: #f8f9fa; }
+                        .details { background: white; padding: 15px; border-radius: 8px; margin: 10px 0; }
+                        .button { display: inline-block; background: #17a2b8; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin: 10px 0; }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h2>✅ HR Approved Tire Request</h2>
+                        <p>Sri Lanka Telecom - TTO Management System</p>
+                    </div>
+                    <div class="content">
+                        <h3>📋 Approved Request Details:</h3>
+                        <div class="details">
+                            <p><strong>Request ID:</strong> #%s</p>
+                            <p><strong>Vehicle Number:</strong> %s</p>
+                            <p><strong>User Section:</strong> %s</p>
+                            <p><strong>Status:</strong> ✅ HR Approved</p>
+                        </div>
+                        
+                        <a href="https://tire-frontend-main.vercel.app/tto-dashboard" class="button">
+                            🔧 Access TTO Dashboard
+                        </a>
+                    </div>
+                </body>
+                </html>
+            """, requestId, vehicleNo, userSection);
+            
+            helper.setText(htmlContent, true);
+            mailSender.send(message);
+            
+            logger.info("✅ TTO notification email sent successfully for request: {}", requestId);
+            
+        } catch (MessagingException e) {
+            logger.error("❌ Failed to send TTO notification email for request: {}", requestId, e);
+        }
+    }
+    
+    // 📧 3. Send email to Engineer when TTO approves
+    public void sendTTOApprovalNotificationToEngineer(String vehicleNo, String userSection, String requestId) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+            
+            helper.setTo("engineerslt38@gmail.com");
+            helper.setSubject("🔧 TTO Approved - Engineering Review Required " + vehicleNo);
+            
+            String htmlContent = String.format("""
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <style>
+                        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                        .header { background: linear-gradient(135deg, #17a2b8, #117a8b); color: white; padding: 20px; text-align: center; }
+                        .content { padding: 20px; background: #f8f9fa; }
+                        .details { background: white; padding: 15px; border-radius: 8px; margin: 10px 0; }
+                        .button { display: inline-block; background: #ffc107; color: #212529; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin: 10px 0; font-weight: bold; }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h2>🔧 Engineering Review Required</h2>
+                        <p>Sri Lanka Telecom - Engineering Department</p>
+                    </div>
+                    <div class="content">
+                        <h3>📋 TTO Approved Request:</h3>
+                        <div class="details">
+                            <p><strong>Request ID:</strong> #%s</p>
+                            <p><strong>Vehicle Number:</strong> %s</p>
+                            <p><strong>User Section:</strong> %s</p>
+                            <p><strong>Status:</strong> ✅ HR + TTO Approved</p>
+                        </div>
+                        
+                        <a href="https://tire-frontend-main.vercel.app/engineer-dashboard" class="button">
+                            ⚙️ Access Engineer Dashboard
+                        </a>
+                    </div>
+                </body>
+                </html>
+            """, requestId, vehicleNo, userSection);
+            
+            helper.setText(htmlContent, true);
+            mailSender.send(message);
+            
+            logger.info("✅ Engineer notification email sent successfully for request: {}", requestId);
+            
+        } catch (MessagingException e) {
+            logger.error("❌ Failed to send Engineer notification email for request: {}", requestId, e);
+        }
+    }
+    
+    // 📧 4. Send confirmation email to User when Engineer approves
+    public void sendEngineerApprovalConfirmationToUser(String userEmail, String vehicleNo, String requestId) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+            
+            helper.setTo(userEmail);
+            helper.setSubject("🎉 Tire Request Approved - " + vehicleNo);
+            
+            String htmlContent = String.format("""
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <style>
+                        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                        .header { background: linear-gradient(135deg, #28a745, #20c997); color: white; padding: 20px; text-align: center; }
+                        .content { padding: 20px; background: #f8f9fa; }
+                        .details { background: white; padding: 15px; border-radius: 8px; margin: 10px 0; }
+                        .button { display: inline-block; background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin: 10px 0; }
+                        .success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; padding: 15px; border-radius: 8px; margin: 10px 0; }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h2>🎉 Tire Request Fully Approved!</h2>
+                        <p>Sri Lanka Telecom - Request Confirmation</p>
+                    </div>
+                    <div class="content">
+                        <div class="success">
+                            <h3>✅ Great News! Your tire request has been approved by all departments.</h3>
+                        </div>
+                        
+                        <div class="details">
+                            <p><strong>Request ID:</strong> #%s</p>
+                            <p><strong>Vehicle Number:</strong> %s</p>
+                            <p><strong>Status:</strong> ✅ HR → TTO → Engineer (All Approved)</p>
+                        </div>
+                        
+                        <a href="https://tire-frontend-main.vercel.app/tire-order" class="button">
+                            🛒 Proceed to Tire Order
+                        </a>
+                    </div>
+                </body>
+                </html>
+            """, requestId, vehicleNo);
+            
+            helper.setText(htmlContent, true);
+            mailSender.send(message);
+            
+            logger.info("✅ User confirmation email sent successfully for request: {}", requestId);
+            
+        } catch (MessagingException e) {
+            logger.error("❌ Failed to send User confirmation email for request: {}", requestId, e);
+        }
+    }
+    
+    // 📧 5. Send tire order notification to Seller
+    public void sendTireOrderNotificationToSeller(String vehicleNo, String tireInfo, String quantity, String orderId) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+            
+            helper.setTo("slttiersellerseller@gmail.com");
+            helper.setSubject("🛒 New Tire Order Received - " + vehicleNo);
+            
+            String htmlContent = String.format("""
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <style>
+                        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                        .header { background: linear-gradient(135deg, #fd7e14, #e55a4e); color: white; padding: 20px; text-align: center; }
+                        .content { padding: 20px; background: #f8f9fa; }
+                        .details { background: white; padding: 15px; border-radius: 8px; margin: 10px 0; }
+                        .button { display: inline-block; background: #dc3545; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin: 10px 0; }
+                        .urgent { background: #fff3cd; border: 1px solid #ffeaa7; color: #856404; padding: 15px; border-radius: 8px; margin: 10px 0; }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h2>🛒 New Tire Order Alert</h2>
+                        <p>Sri Lanka Telecom - Supplier Management System</p>
+                    </div>
+                    <div class="content">
+                        <div class="urgent">
+                            <h3>⚡ Urgent: New Tire Order Received</h3>
+                        </div>
+                        
+                        <div class="details">
+                            <p><strong>Order ID:</strong> #%s</p>
+                            <p><strong>Vehicle Number:</strong> %s</p>
+                            <p><strong>Tire Brand/Info:</strong> %s</p>
+                            <p><strong>Quantity:</strong> %s tires</p>
+                            <p><strong>Status:</strong> 🔄 Pending Seller Action</p>
+                        </div>
+                        
+                        <a href="https://tire-frontend-main.vercel.app/seller-dashboard" class="button">
+                            🏪 Access Seller Dashboard
+                        </a>
+                    </div>
+                </body>
+                </html>
+            """, orderId, vehicleNo, tireInfo, quantity);
+            
+            helper.setText(htmlContent, true);
+            mailSender.send(message);
+            
+            logger.info("✅ Seller notification email sent successfully for order: {}", orderId);
+            
+        } catch (MessagingException e) {
+            logger.error("❌ Failed to send Seller notification email for order: {}", orderId, e);
+        }
+    }
 } 
