@@ -10,6 +10,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -1636,10 +1637,12 @@ public class TireRequestController {
     public ResponseEntity<String> engineerApprove(@PathVariable String id) {
         try {
             // Get the request details before approving
-            TireRequest request = tireRequestService.getTireRequestById(id);
-            if (request == null) {
+            Optional<TireRequest> optionalRequest = tireRequestService.getTireRequestById(id);
+            if (!optionalRequest.isPresent()) {
                 return ResponseEntity.notFound().build();
             }
+            
+            TireRequest request = optionalRequest.get();
             
             // Approve the request
             tireRequestService.approveByEngineer(id);
