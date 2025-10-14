@@ -2293,4 +2293,99 @@ public class TireRequestController {
     private String generateSimpleToken(String email) {
         return Base64.getEncoder().encodeToString((email + ":" + System.currentTimeMillis()).getBytes());
     }
+
+    // ----------------- Email Endpoints -----------------
+    
+    /**
+     * Send email notification endpoint for frontend
+     */
+    @PostMapping("/api/send-email")
+    public ResponseEntity<Map<String, Object>> sendEmail(@RequestBody Map<String, Object> emailData) {
+        try {
+            String to = (String) emailData.get("to");
+            String subject = (String) emailData.get("subject");
+            String htmlContent = (String) emailData.get("html");
+            
+            logger.info("📧 Received email request: to={}, subject={}", to, subject);
+            
+            if (to == null || subject == null || htmlContent == null) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("success", false);
+                errorResponse.put("message", "Missing required email fields: to, subject, html");
+                return ResponseEntity.badRequest().body(errorResponse);
+            }
+            
+            // Send email using existing email service
+            emailService.sendHtmlEmail(to, subject, htmlContent);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Email sent successfully");
+            logger.info("✅ Email sent successfully to: {}", to);
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            logger.error("❌ Failed to send email: {}", e.getMessage());
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "Failed to send email: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+    
+    /**
+     * Alternative email endpoints for different paths
+     */
+    @PostMapping("/api/notifications/email")
+    public ResponseEntity<Map<String, Object>> sendNotificationEmail(@RequestBody Map<String, Object> emailData) {
+        return sendEmail(emailData);
+    }
+    
+    @PostMapping("/api/mail/send")
+    public ResponseEntity<Map<String, Object>> sendMailNotification(@RequestBody Map<String, Object> emailData) {
+        return sendEmail(emailData);
+    }
+    
+    // ----------------- Health Check & Server Status -----------------
+    
+    /**
+     * Health check endpoint to prevent 502 errors
+     */
+    @GetMapping("/health")
+    public ResponseEntity<Map<String, Object>> healthCheck() {
+        Map<String, Object> health = new HashMap<>();
+        health.put("status", "UP");
+        health.put("timestamp", new Date().toString());
+        health.put("server", "Tire Management Backend");
+        health.put("version", "1.0");
+        
+        // Check MongoDB connection
+        try {
+            long requestCount = tireRequestService.getTotalRequestCount();
+            health.put("database", "Connected");
+            health.put("totalRequests", requestCount);
+        } catch (Exception e) {
+            health.put("database", "Error: " + e.getMessage());
+        }
+        
+        // Check email service
+        try {
+            boolean emailReady = emailService.getMailSender() != null;
+            health.put("emailService", emailReady ? "Ready" : "Not Available");
+        } catch (Exception e) {
+            health.put("emailService", "Error: " + e.getMessage());
+        }
+        
+        logger.info("🔍 Health check performed - Status: UP");
+        return ResponseEntity.ok(health);
+    }
+    
+    /**
+     * Quick ping endpoint for faster health checks
+     */
+    @GetMapping("/ping")
+    public ResponseEntity<String> ping() {
+        return ResponseEntity.ok("pong");
+    }
 }

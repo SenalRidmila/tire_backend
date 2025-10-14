@@ -11,17 +11,19 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(@NonNull CorsRegistry registry) {
-        registry.addMapping("/**") // Allow all routes
+        registry.addMapping("/**") // Allow all routes including email endpoints
                 .allowedOrigins(
                     "http://localhost:3001",           // Local React development
                     "http://localhost:3000",           // Alternative React port
                     "https://tire-slt.vercel.app",     // Production Vercel
-                    "https://tire-frontend-main.vercel.app" // Alternative Vercel
+                    "https://tire-frontend-main.vercel.app", // Alternative Vercel
+                    "https://tire-frontend.vercel.app" // Additional Vercel domain
                 )
-                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD")
                 .allowedHeaders("*")
                 .allowCredentials(true) // Enable credentials for local development
-                .maxAge(3600);
+                .maxAge(3600)
+                .exposedHeaders("Content-Type", "Authorization"); // Expose headers for frontend
     }
 
     @Override

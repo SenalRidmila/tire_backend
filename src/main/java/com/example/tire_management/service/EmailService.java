@@ -579,4 +579,26 @@ public class EmailService {
             logger.error("❌ Failed to send Seller notification email for order: {}", orderId, e);
         }
     }
+    
+    /**
+     * Generic method to send HTML email - used by frontend email notifications
+     */
+    public void sendHtmlEmail(String to, String subject, String htmlContent) throws MessagingException {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(htmlContent, true);
+            helper.setFrom("slthrmanager@gmail.com"); // Set from address
+            
+            mailSender.send(message);
+            logger.info("✅ HTML email sent successfully to: {}", to);
+            
+        } catch (Exception e) {
+            logger.error("❌ Failed to send HTML email to: {}", to, e);
+            throw new MessagingException("Failed to send email: " + e.getMessage());
+        }
+    }
 } 
