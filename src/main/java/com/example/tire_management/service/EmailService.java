@@ -564,6 +564,7 @@ public class EmailService {
     
     /**
      * Generic method to send HTML email - used by frontend email notifications
+     * Updated to fix deployment compilation issues
      */
     public void sendHtmlEmail(String to, String subject, String htmlContent) throws MessagingException {
         try {
