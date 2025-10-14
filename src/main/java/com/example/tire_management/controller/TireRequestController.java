@@ -1220,6 +1220,20 @@ public class TireRequestController {
             TireRequest createdRequest = tireRequestService.createTireRequest(request);
             logger.info("Created tire request with {} photos", photoUrls.size());
             
+            // Send email notification to HR Manager after successful creation
+            try {
+                emailService.sendNewRequestNotificationToHR(
+                    createdRequest.getemail(),
+                    createdRequest.getVehicleNo(),
+                    createdRequest.getUserSection(),
+                    createdRequest.getId()
+                );
+                logger.info("Email notification sent to HR Manager for request ID: {}", createdRequest.getId());
+            } catch (Exception emailException) {
+                logger.warn("Failed to send email notification to HR Manager: {}", emailException.getMessage());
+                // Don't fail the request creation if email fails
+            }
+            
             Map<String, Object> successResponse = new HashMap<>();
             successResponse.put("success", true);
             successResponse.put("data", createdRequest);
