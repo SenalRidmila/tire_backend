@@ -1541,8 +1541,6 @@ public class TireRequestController {
             try {
                 emailService.sendTTONotification(approvedRequest);
                 logger.info("✅ TTO notification email sent after manager approval for request: {}", id);
-                );
-                logger.info("✅ TTO notification email sent for HR approved request: {}", approvedRequest.getId());
             } catch (Exception e) {
                 logger.error("❌ Failed to send TTO notification email for request: {}", approvedRequest.getId(), e);
                 // Don't fail the approval if email fails
@@ -1574,11 +1572,6 @@ public class TireRequestController {
             try {
                 emailService.sendEngineerNotification(approvedRequest);
                 logger.info("✅ Engineer notification email sent after TTO approval for request: {}", id);
-                    approvedRequest.getVehicleNo(), 
-                    approvedRequest.getUserSection(), 
-                    approvedRequest.getId()
-                );
-                logger.info("✅ Engineer notification email sent for TTO approved request: {}", approvedRequest.getId());
             } catch (Exception e) {
                 logger.error("❌ Failed to send Engineer notification email for request: {}", approvedRequest.getId(), e);
                 // Don't fail the approval if email fails
@@ -1673,10 +1666,6 @@ public class TireRequestController {
             try {
                 emailService.sendUserApprovalConfirmation(request);
                 logger.info("✅ User approval confirmation email sent after engineer approval for request: {}", id); 
-                    request.getVehicleNo(), 
-                    request.getId()
-                );
-                logger.info("✅ User confirmation email sent for Engineer approved request: {}", request.getId());
             } catch (Exception e) {
                 logger.error("❌ Failed to send User confirmation email for request: {}", request.getId(), e);
                 // Don't fail the approval if email fails
