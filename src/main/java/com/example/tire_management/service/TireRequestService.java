@@ -400,4 +400,16 @@ public class TireRequestService {
         }
     }
 
+    /**
+     * Get total count of tire requests for health check
+     */
+    public long getTotalRequestCount() {
+        try {
+            return tireRequestRepository.count();
+        } catch (Exception e) {
+            logger.error("Error getting total request count: {}", e.getMessage(), e);
+            return -1;
+        }
+    }
+
 }

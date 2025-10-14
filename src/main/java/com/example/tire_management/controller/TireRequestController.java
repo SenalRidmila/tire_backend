@@ -10,6 +10,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -33,6 +34,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.http.CacheControl;
+import org.springframework.web.bind.annotation.RequestMethod;
 
 import java.util.concurrent.TimeUnit;
 
@@ -40,6 +42,7 @@ import com.example.tire_management.model.TireRequest;
 import com.example.tire_management.service.TireRequestService;
 import com.example.tire_management.service.TireRequestValidationService;
 import com.example.tire_management.service.AzureTokenValidationService;
+import com.example.tire_management.service.EmailService;
 
 @CrossOrigin(origins = "*")
 @RestController
@@ -56,19 +59,35 @@ public class TireRequestController {
     
     @Autowired
     private AzureTokenValidationService azureTokenValidationService;
+    
+    @Autowired
+    private EmailService emailService;
 
     // ----------------- Common GETs -----------------
     @GetMapping
-    public List<TireRequest> getAllTireRequests() {
-        List<TireRequest> requests = tireRequestService.getAllTireRequests();
-        
-        // Ensure photos are properly consolidated for each request
-        for (TireRequest request : requests) {
-            consolidatePhotos(request);
+    public ResponseEntity<?> getAllTireRequests() {
+        try {
+            logger.info("🔍 Fetching all tire requests from database...");
+            List<TireRequest> requests = tireRequestService.getAllTireRequests();
+            
+            // Ensure photos are properly consolidated for each request
+            for (TireRequest request : requests) {
+                consolidatePhotos(request);
+            }
+            
+            logger.info("✅ Retrieved {} tire requests with consolidated photos", requests.size());
+            return ResponseEntity.ok(requests);
+            
+        } catch (Exception e) {
+            logger.error("❌ Error fetching tire requests: {}", e.getMessage(), e);
+            
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "Failed to fetch tire requests: " + e.getMessage());
+            errorResponse.put("timestamp", new Date().toString());
+            
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
-        
-        logger.info("Retrieved {} tire requests with consolidated photos", requests.size());
-        return requests;
     }
 
     // Fast endpoint for table loading without photos - OPTIMIZED
@@ -1215,6 +1234,15 @@ public class TireRequestController {
             TireRequest createdRequest = tireRequestService.createTireRequest(request);
             logger.info("Created tire request with {} photos", photoUrls.size());
             
+            // 📧 Send email notification to Manager after successful creation (Step 1 of workflow)
+            try {
+                emailService.sendManagerNotification(createdRequest);
+                logger.info("✅ Manager notification email sent for new request: {}", createdRequest.getId());
+            } catch (Exception emailException) {
+                logger.warn("❌ Failed to send manager notification email: {}", emailException.getMessage());
+                // Don't fail the request creation if email fails
+            }
+            
             Map<String, Object> successResponse = new HashMap<>();
             successResponse.put("success", true);
             successResponse.put("data", createdRequest);
@@ -1321,10 +1349,24 @@ public class TireRequestController {
             TireRequest savedRequest = tireRequestService.createTireRequest(request);
             logger.info("Tire request created successfully with ID: {}", savedRequest.getId());
             
+            // 📧 Send email notification to HR Manager
+            try {
+                emailService.sendNewRequestNotificationToHR(
+                    savedRequest.getemail(), 
+                    savedRequest.getVehicleNo(), 
+                    savedRequest.getUserSection(), 
+                    savedRequest.getId()
+                );
+                logger.info("✅ HR notification email sent for request: {}", savedRequest.getId());
+            } catch (Exception e) {
+                logger.error("❌ Failed to send HR notification email for request: {}", savedRequest.getId(), e);
+                // Don't fail the request creation if email fails
+            }
+            
             Map<String, Object> successResponse = new HashMap<>();
             successResponse.put("success", true);
             successResponse.put("data", savedRequest);
-            successResponse.put("message", "Tire request created successfully");
+            successResponse.put("message", "Tire request created successfully and HR Manager has been notified");
             return ResponseEntity.ok(successResponse);
         } catch (Exception e) {
             logger.error("Error creating tire request: {}", e.getMessage(), e);
@@ -1493,7 +1535,18 @@ public class TireRequestController {
     @PostMapping("/{id}/approve")
     public ResponseEntity<TireRequest> approveTireRequest(@PathVariable String id) {
         try {
-            return ResponseEntity.ok(tireRequestService.approveTireRequest(id));
+            TireRequest approvedRequest = tireRequestService.approveTireRequest(id);
+            
+            // 📧 Send email notification to TTO Officer (Step 2 of workflow)
+            try {
+                emailService.sendTTONotification(approvedRequest);
+                logger.info("✅ TTO notification email sent after manager approval for request: {}", id);
+            } catch (Exception e) {
+                logger.error("❌ Failed to send TTO notification email for request: {}", approvedRequest.getId(), e);
+                // Don't fail the approval if email fails
+            }
+            
+            return ResponseEntity.ok(approvedRequest);
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }
@@ -1515,9 +1568,18 @@ public class TireRequestController {
         try {
             TireRequest approvedRequest = tireRequestService.approveTireRequestByTTO(id);
             
+            // 📧 Send email notification to Engineer (Step 3 of workflow)
+            try {
+                emailService.sendEngineerNotification(approvedRequest);
+                logger.info("✅ Engineer notification email sent after TTO approval for request: {}", id);
+            } catch (Exception e) {
+                logger.error("❌ Failed to send Engineer notification email for request: {}", approvedRequest.getId(), e);
+                // Don't fail the approval if email fails
+            }
+            
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
-            response.put("message", "Request approved by TTO and notification sent to Engineer");
+            response.put("message", "Request approved by TTO and Engineer has been notified");
             response.put("request", approvedRequest);
             response.put("status", approvedRequest.getStatus());
             response.put("ttoApprovalDate", approvedRequest.getTtoApprovalDate());
@@ -1588,8 +1650,32 @@ public class TireRequestController {
     }
     @PostMapping("/{id}/engineer-approve")
     public ResponseEntity<String> engineerApprove(@PathVariable String id) {
-        tireRequestService.approveByEngineer(id);
-        return ResponseEntity.ok("Request approved and email sent.");
+        try {
+            // Get the request details before approving
+            Optional<TireRequest> optionalRequest = tireRequestService.getTireRequestById(id);
+            if (!optionalRequest.isPresent()) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            TireRequest request = optionalRequest.get();
+            
+            // Approve the request
+            tireRequestService.approveByEngineer(id);
+            
+            // 📧 Send confirmation email to User (Step 4 of workflow)
+            try {
+                emailService.sendUserApprovalConfirmation(request);
+                logger.info("✅ User approval confirmation email sent after engineer approval for request: {}", id); 
+            } catch (Exception e) {
+                logger.error("❌ Failed to send User confirmation email for request: {}", request.getId(), e);
+                // Don't fail the approval if email fails
+            }
+            
+            return ResponseEntity.ok("Request fully approved! User has been notified and can now proceed to tire ordering.");
+        } catch (Exception e) {
+            logger.error("Error in engineer approval for request {}: {}", id, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error processing approval");
+        }
     }
 
     @PostMapping("/{id}/engineer-reject")
@@ -2204,4 +2290,8 @@ public class TireRequestController {
     private String generateSimpleToken(String email) {
         return Base64.getEncoder().encodeToString((email + ":" + System.currentTimeMillis()).getBytes());
     }
+
+
+    
+
 }

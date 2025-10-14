@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Engineer Dashboard - API Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header {
+            background: #0e4194;
+            color: white;
+            padding: 15px;
+            margin: -20px -20px 20px -20px;
+            border-radius: 8px 8px 0 0;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .loading {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+        .request-card {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+            background: #f9f9f9;
+        }
+        .request-header {
+            font-weight: bold;
+            color: #0e4194;
+            margin-bottom: 10px;
+        }
+        .request-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+        .detail-item {
+            padding: 5px;
+        }
+        .detail-label {
+            font-weight: bold;
+            color: #555;
+        }
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status-tto-approved {
+            background: #28a745;
+            color: white;
+        }
+        .status-engineer-approved {
+            background: #17a2b8;
+            color: white;
+        }
+        .status-engineer-rejected {
+            background: #dc3545;
+            color: white;
+        }
+        button {
+            background: #0e4194;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0a2f6b;
+        }
+        #debug-info {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔧 Engineer Dashboard - API Diagnostic Test</h1>
+            <p>This page tests the backend API connection to diagnose the blank page issue</p>
+        </div>
+
+        <div id="connection-status" class="status loading">
+            🔄 Testing API connection...
+        </div>
+
+        <div style="margin: 20px 0;">
+            <button onclick="testConnection()">🔄 Test API Connection</button>
+            <button onclick="loadRequests()">📋 Load Engineer Requests</button>
+            <button onclick="clearResults()">🗑️ Clear Results</button>
+        </div>
+
+        <div id="results-container"></div>
+
+        <div id="debug-info">
+            <strong>Debug Information:</strong><br>
+            <span id="debug-content">Ready for testing...</span>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://tire-backend-58a9.onrender.com/api/tire-requests';
+        
+        function updateStatus(message, type) {
+            const statusEl = document.getElementById('connection-status');
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+        }
+
+        function addDebug(message) {
+            const debugEl = document.getElementById('debug-content');
+            const timestamp = new Date().toLocaleTimeString();
+            debugEl.innerHTML += `<br>[${timestamp}] ${message}`;
+        }
+
+        async function testConnection() {
+            updateStatus('🔄 Testing basic API connection...', 'loading');
+            addDebug('Testing basic API connection...');
+            
+            try {
+                const response = await fetch(`${API_BASE}/summary/counts`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    updateStatus('✅ API Connection Successful!', 'success');
+                    addDebug(`API connection successful. Manager: ${data.managerRequests}, TTO: ${data.ttoRequests}, Engineer: ${data.engineerRequests}`);
+                } else {
+                    updateStatus('❌ API returned error: ' + response.status, 'error');
+                    addDebug(`API error: ${response.status} - ${response.statusText}`);
+                }
+            } catch (error) {
+                updateStatus('❌ Connection failed: ' + error.message, 'error');
+                addDebug(`Connection error: ${error.message}`);
+                console.error('Connection test failed:', error);
+            }
+        }
+
+        async function loadRequests() {
+            updateStatus('🔄 Loading engineer requests...', 'loading');
+            addDebug('Loading engineer requests...');
+            
+            try {
+                const response = await fetch(`${API_BASE}/engineer/requests`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    updateStatus(`✅ Loaded ${data.totalRequests} engineer requests successfully!`, 'success');
+                    addDebug(`Loaded ${data.totalRequests} requests (${data.ttoApprovedCount} TTO approved)`);
+                    displayRequests(data.requests);
+                } else {
+                    updateStatus('❌ Failed to load requests: ' + response.status, 'error');
+                    addDebug(`Load error: ${response.status} - ${response.statusText}`);
+                }
+            } catch (error) {
+                updateStatus('❌ Load failed: ' + error.message, 'error');
+                addDebug(`Load error: ${error.message}`);
+                console.error('Load requests failed:', error);
+            }
+        }
+
+        function displayRequests(requests) {
+            const container = document.getElementById('results-container');
+            
+            if (!requests || requests.length === 0) {
+                container.innerHTML = '<div class="status loading">No requests found for engineer dashboard</div>';
+                return;
+            }
+
+            let html = `<h3>📋 Engineer Requests (${requests.length} total)</h3>`;
+            
+            requests.forEach(request => {
+                const statusClass = request.status.toLowerCase().replace('_', '-');
+                html += `
+                    <div class="request-card">
+                        <div class="request-header">
+                            Request #${request.id} - ${request.vehicleNo}
+                            <span class="status-badge status-${statusClass}">${request.status}</span>
+                        </div>
+                        <div class="request-details">
+                            <div class="detail-item">
+                                <span class="detail-label">Vehicle:</span> ${request.vehicleBrand} ${request.vehicleModel}
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Type:</span> ${request.vehicleType}
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Tire Size:</span> ${request.tireSize}
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Quantity:</span> ${request.noOfTires} tires, ${request.noOfTubes} tubes
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Officer:</span> ${request.officerServiceNo}
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Email:</span> ${request.email}
+                            </div>
+                            ${request.ttoApprovalDate ? `
+                            <div class="detail-item">
+                                <span class="detail-label">TTO Approved:</span> ${new Date(request.ttoApprovalDate).toLocaleString()}
+                            </div>
+                            ` : ''}
+                            ${request.comments ? `
+                            <div class="detail-item">
+                                <span class="detail-label">Comments:</span> ${request.comments}
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+
+        function clearResults() {
+            document.getElementById('results-container').innerHTML = '';
+            document.getElementById('debug-content').innerHTML = 'Debug cleared...';
+            updateStatus('Ready for testing...', 'loading');
+        }
+
+        // Auto-test connection when page loads
+        window.addEventListener('load', function() {
+            setTimeout(testConnection, 1000);
+        });
+
+        // Get request ID from URL if present (like your original URL)
+        const urlParams = new URLSearchParams(window.location.search);
+        const requestId = urlParams.get('requestId');
+        if (requestId) {
+            addDebug(`URL contains requestId: ${requestId}`);
+        }
+    </script>
+</body>
+</html>
