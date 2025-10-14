@@ -1234,17 +1234,12 @@ public class TireRequestController {
             TireRequest createdRequest = tireRequestService.createTireRequest(request);
             logger.info("Created tire request with {} photos", photoUrls.size());
             
-            // Send email notification to HR Manager after successful creation
+            // 📧 Send email notification to Manager after successful creation (Step 1 of workflow)
             try {
-                emailService.sendNewRequestNotificationToHR(
-                    createdRequest.getemail(),
-                    createdRequest.getVehicleNo(),
-                    createdRequest.getUserSection(),
-                    createdRequest.getId()
-                );
-                logger.info("Email notification sent to HR Manager for request ID: {}", createdRequest.getId());
+                emailService.sendManagerNotification(createdRequest);
+                logger.info("✅ Manager notification email sent for new request: {}", createdRequest.getId());
             } catch (Exception emailException) {
-                logger.warn("Failed to send email notification to HR Manager: {}", emailException.getMessage());
+                logger.warn("❌ Failed to send manager notification email: {}", emailException.getMessage());
                 // Don't fail the request creation if email fails
             }
             
@@ -1542,12 +1537,10 @@ public class TireRequestController {
         try {
             TireRequest approvedRequest = tireRequestService.approveTireRequest(id);
             
-            // 📧 Send email notification to TTO Officer
+            // 📧 Send email notification to TTO Officer (Step 2 of workflow)
             try {
-                emailService.sendHRApprovalNotificationToTTO(
-                    approvedRequest.getVehicleNo(), 
-                    approvedRequest.getUserSection(), 
-                    approvedRequest.getId()
+                emailService.sendTTONotification(approvedRequest);
+                logger.info("✅ TTO notification email sent after manager approval for request: {}", id);
                 );
                 logger.info("✅ TTO notification email sent for HR approved request: {}", approvedRequest.getId());
             } catch (Exception e) {
@@ -1577,9 +1570,10 @@ public class TireRequestController {
         try {
             TireRequest approvedRequest = tireRequestService.approveTireRequestByTTO(id);
             
-            // 📧 Send email notification to Engineer
+            // 📧 Send email notification to Engineer (Step 3 of workflow)
             try {
-                emailService.sendTTOApprovalNotificationToEngineer(
+                emailService.sendEngineerNotification(approvedRequest);
+                logger.info("✅ Engineer notification email sent after TTO approval for request: {}", id);
                     approvedRequest.getVehicleNo(), 
                     approvedRequest.getUserSection(), 
                     approvedRequest.getId()
@@ -1675,10 +1669,10 @@ public class TireRequestController {
             // Approve the request
             tireRequestService.approveByEngineer(id);
             
-            // 📧 Send confirmation email to User
+            // 📧 Send confirmation email to User (Step 4 of workflow)
             try {
-                emailService.sendEngineerApprovalConfirmationToUser(
-                    request.getemail(), 
+                emailService.sendUserApprovalConfirmation(request);
+                logger.info("✅ User approval confirmation email sent after engineer approval for request: {}", id); 
                     request.getVehicleNo(), 
                     request.getId()
                 );

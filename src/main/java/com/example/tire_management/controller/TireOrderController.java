@@ -106,17 +106,22 @@ public class TireOrderController {
     public ResponseEntity<TireOrder> createOrder(@RequestBody TireOrder order) {
         TireOrder created = tireOrderService.createOrder(order);
         
-        // 📧 Send email notification to Seller
+        // 📧 Send email notification to Seller (Step 5 of workflow - final step)
         try {
-            emailService.sendTireOrderNotificationToSeller(
+            String tireInfo = String.format("%s - Size: %s", 
+                created.getTireBrand() != null ? created.getTireBrand() : "Standard Tire",
+                created.getLocation() != null ? created.getLocation() : "Standard Size");
+            
+            emailService.sendSellerTireOrderNotification(
+                created.getId(),
                 created.getVehicleNo() != null ? created.getVehicleNo() : "Unknown Vehicle",
-                created.getTireBrand() != null ? created.getTireBrand() : "Unknown Brand",
+                tireInfo,
                 String.valueOf(created.getQuantity()),
-                created.getId()
+                created.getUserEmail() != null ? created.getUserEmail() : "unknown@sltelecom.lk"
             );
-            logger.info("✅ Seller notification email sent for tire order: {}", created.getId());
+            logger.info("✅ Seller tire order notification email sent for order: {}", created.getId());
         } catch (Exception e) {
-            logger.error("❌ Failed to send Seller notification email for order: {}", created.getId(), e);
+            logger.error("❌ Failed to send seller tire order notification email for order: {}", created.getId(), e);
             // Don't fail the order creation if email fails
         }
         
