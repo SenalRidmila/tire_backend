@@ -44,7 +44,7 @@ import com.example.tire_management.service.TireRequestValidationService;
 import com.example.tire_management.service.AzureTokenValidationService;
 import com.example.tire_management.service.EmailService;
 
-@CrossOrigin(origins = "*")
+@CrossOrigin(originPatterns = "*")
 @RestController
 @RequestMapping("/api/tire-requests")
 public class TireRequestController {

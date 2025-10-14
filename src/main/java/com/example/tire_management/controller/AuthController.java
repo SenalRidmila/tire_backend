@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.example.tire_management.service.TireRequestService;
 
-@CrossOrigin(origins = "*")
+@CrossOrigin(originPatterns = "*")
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {

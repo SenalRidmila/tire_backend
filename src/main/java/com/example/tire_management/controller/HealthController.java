@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.example.tire_management.service.TireRequestService;
 import com.example.tire_management.service.EmailService;
 
-@CrossOrigin(origins = "*")
+@CrossOrigin(originPatterns = "*")
 @RestController
 public class HealthController {
 
