@@ -4,7 +4,7 @@
 Write-Host "=== Engineer Dashboard Blank Page Troubleshooting ===" -ForegroundColor Cyan
 Write-Host "Date: $(Get-Date)" -ForegroundColor Yellow
 
-$baseUrl = "https://tirebackend-production.up.railway.app/api/tire-requests"
+$baseUrl = "https://tire-backend-58a9.onrender.com/api/tire-requests"
 $frontendUrl = "https://tire-frontend.vercel.app"
 
 Write-Host "`n1. Testing Backend API Endpoints..." -ForegroundColor Green

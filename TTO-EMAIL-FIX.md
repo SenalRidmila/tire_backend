@@ -60,7 +60,7 @@ The fix has been deployed to Railway backend. The next TTO email sent will use t
 ./test_tto_url_fix.ps1
 
 # Check current TTO requests 
-curl "https://tirebackend-production.up.railway.app/api/tire-requests/tto/requests"
+curl "https://tire-backend-58a9.onrender.com/api/tire-requests/tto/requests"
 ```
 
 ## Impact Summary
