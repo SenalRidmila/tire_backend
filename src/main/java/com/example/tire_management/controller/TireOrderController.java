@@ -31,7 +31,7 @@ import com.example.tire_management.service.EmailService;
 
 @RestController
 @RequestMapping("/api/tire-orders")
-@CrossOrigin(origins = {"http://localhost:3000", "http://localhost:3001"})
+@CrossOrigin(originPatterns = "*")
 public class TireOrderController {
 
     private static final Logger logger = LoggerFactory.getLogger(TireOrderController.class);
