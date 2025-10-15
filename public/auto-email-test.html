@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto Email Service Testing - Pure Java Backend</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f7fa;
+        }
+        .container {
+            background-color: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 20px;
+        }
+        .service-info {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .test-section {
+            background-color: #f8f9fa;
+            padding: 25px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 5px solid #28a745;
+        }
+        .email-config {
+            background-color: #e8f5e9;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            margin: 15px 0;
+            border: 1px solid #4caf50;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-weight: bold;
+        }
+        .success { 
+            background-color: #d4edda; 
+            color: #155724; 
+            border: 1px solid #c3e6cb;
+        }
+        .error { 
+            background-color: #f8d7da; 
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .warning { 
+            background-color: #fff3cd; 
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #b8daff;
+        }
+        input, button, select {
+            padding: 12px;
+            margin: 8px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        input:focus {
+            border-color: #3498db;
+            outline: none;
+            box-shadow: 0 0 8px rgba(52, 152, 219, 0.3);
+        }
+        button {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+            border: none;
+            min-width: 140px;
+        }
+        button:hover {
+            background: linear-gradient(135deg, #2980b9, #1f4788);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        .test-button {
+            background: linear-gradient(135deg, #28a745, #1e7e34);
+        }
+        .test-button:hover {
+            background: linear-gradient(135deg, #1e7e34, #155724);
+        }
+        .workflow-button {
+            background: linear-gradient(135deg, #17a2b8, #138496);
+        }
+        .workflow-button:hover {
+            background: linear-gradient(135deg, #138496, #0e6674);
+        }
+        .advantage-list {
+            background-color: #f0f8ff;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+        }
+        .test-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        @media (max-width: 768px) {
+            .test-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Auto Email Service Testing</h1>
+            <p>Pure Java Backend Email System - Cloud Compatible</p>
+        </div>
+
+        <div class="service-info">
+            <h2>📧 Service Overview</h2>
+            <p><strong>AutoEmailService</strong> - Pure Java backend email solution designed for cloud platforms like Render</p>
+            <ul>
+                <li>✅ <strong>No External Dependencies:</strong> Uses only Spring Boot JavaMailSender</li>
+                <li>✅ <strong>Cloud Compatible:</strong> Works on Render, Heroku, AWS, etc.</li>
+                <li>✅ <strong>HTML + Text Fallback:</strong> Beautiful emails with simple text backup</li>
+                <li>✅ <strong>Complete Workflow:</strong> 4-step approval process automation</li>
+                <li>✅ <strong>Real Email Integration:</strong> Pre-configured with production addresses</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h2>📧 Configured Email Addresses</h2>
+            <div class="email-config">
+                <strong>Manager:</strong> slthrmanager@gmail.com<br>
+                <strong>TTO:</strong> slttransportofficer@gmail.com<br>
+                <strong>Engineer:</strong> engineerslt38@gmail.com<br>
+                <strong>Seller:</strong> slttiersellerseller@gmail.com<br>
+            </div>
+            <p><em>These are automatically loaded from application.properties</em></p>
+        </div>
+
+        <div class="test-section">
+            <h2>🧪 Individual Email Testing</h2>
+            <div class="test-grid">
+                <div>
+                    <h3>📋 Manager Notification</h3>
+                    <p>Tests Step 1: New request notification to manager</p>
+                    <button class="test-button" onclick="testManagerEmail()">📧 Test Manager Email</button>
+                </div>
+                
+                <div>
+                    <h3>🚛 TTO Notification</h3>
+                    <p>Tests Step 2: Manager → TTO approval notification</p>
+                    <button class="test-button" onclick="testTTOEmail()">📧 Test TTO Email</button>
+                </div>
+                
+                <div>
+                    <h3>🔧 Engineer Notification</h3>
+                    <p>Tests Step 3: TTO → Engineer approval notification</p>
+                    <button class="test-button" onclick="testEngineerEmail()">📧 Test Engineer Email</button>
+                </div>
+                
+                <div>
+                    <h3>🎉 User Final Notification</h3>
+                    <label>Test Email:</label><br>
+                    <input type="email" id="userTestEmail" placeholder="your-email@gmail.com" style="width: 200px;">
+                    <button class="test-button" onclick="testUserEmail()">📧 Test User Email</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>🔄 Complete Workflow Testing</h2>
+            <p>Tests all 4 steps of the email workflow: User → Manager → TTO → Engineer → User</p>
+            <div>
+                <label>Your Email for Final Step:</label><br>
+                <input type="email" id="workflowTestEmail" placeholder="your-email@gmail.com" style="width: 300px;">
+                <button class="workflow-button" onclick="testCompleteWorkflow()">🔄 Test Complete Workflow</button>
+            </div>
+            <div class="info">
+                <strong>Complete Workflow Process:</strong><br>
+                1️⃣ Manager notification → slthrmanager@gmail.com<br>
+                2️⃣ TTO notification → slttransportofficer@gmail.com<br>
+                3️⃣ Engineer notification → engineerslt38@gmail.com<br>
+                4️⃣ User final notification → your email
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>⚙️ Service Health Check</h2>
+            <button onclick="checkServiceHealth()">🔍 Check Service Status</button>
+            <button onclick="getConfigStatus()">📋 Get Configuration</button>
+        </div>
+
+        <div id="status"></div>
+
+        <div class="advantage-list">
+            <h3>🎯 Why AutoEmailService?</h3>
+            <ul>
+                <li><strong>Pure Java:</strong> No EmailJS account needed, no external API keys</li>
+                <li><strong>Render Compatible:</strong> Designed specifically for cloud deployment</li>
+                <li><strong>Automatic Fallback:</strong> HTML emails with text backup if HTML fails</li>
+                <li><strong>Production Ready:</strong> Uses real email addresses from your config</li>
+                <li><strong>Simple Integration:</strong> Just works with your existing Spring Boot setup</li>
+                <li><strong>Complete Workflow:</strong> Handles entire 4-step approval process</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const backendUrl = 'https://tire-backend-58a9.onrender.com';
+        // const backendUrl = 'http://localhost:8080'; // For local testing
+
+        async function testManagerEmail() {
+            showStatus('🧪 Testing Manager email notification...', 'info');
+            
+            try {
+                const response = await fetch(`${backendUrl}/api/auto-email/test-manager`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showStatus(`✅ Manager email test successful! Check slthrmanager@gmail.com for the test email.`, 'success');
+                } else {
+                    showStatus(`❌ Manager email test failed: ${result.message}`, 'error');
+                }
+                
+            } catch (error) {
+                showStatus(`❌ Manager email test error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testTTOEmail() {
+            showStatus('🧪 Testing TTO email notification...', 'info');
+            
+            try {
+                const response = await fetch(`${backendUrl}/api/auto-email/test-tto`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showStatus(`✅ TTO email test successful! Check slttransportofficer@gmail.com for the test email.`, 'success');
+                } else {
+                    showStatus(`❌ TTO email test failed: ${result.message}`, 'error');
+                }
+                
+            } catch (error) {
+                showStatus(`❌ TTO email test error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testEngineerEmail() {
+            showStatus('🧪 Testing Engineer email notification...', 'info');
+            
+            try {
+                const response = await fetch(`${backendUrl}/api/auto-email/test-engineer`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showStatus(`✅ Engineer email test successful! Check engineerslt38@gmail.com for the test email.`, 'success');
+                } else {
+                    showStatus(`❌ Engineer email test failed: ${result.message}`, 'error');
+                }
+                
+            } catch (error) {
+                showStatus(`❌ Engineer email test error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testUserEmail() {
+            const testEmail = document.getElementById('userTestEmail').value;
+            
+            if (!testEmail || !testEmail.includes('@')) {
+                showStatus('❌ Please enter a valid email address for user final test', 'error');
+                return;
+            }
+            
+            showStatus(`🧪 Testing User final email notification to ${testEmail}...`, 'info');
+            
+            try {
+                const response = await fetch(`${backendUrl}/api/auto-email/test-user`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        testEmail: testEmail
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showStatus(`✅ User final email test successful! Check ${testEmail} for the test email.`, 'success');
+                } else {
+                    showStatus(`❌ User final email test failed: ${result.message}`, 'error');
+                }
+                
+            } catch (error) {
+                showStatus(`❌ User final email test error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testCompleteWorkflow() {
+            const testEmail = document.getElementById('workflowTestEmail').value;
+            
+            if (!testEmail || !testEmail.includes('@')) {
+                showStatus('❌ Please enter a valid email address for complete workflow test', 'error');
+                return;
+            }
+            
+            showStatus(`🔄 Testing complete email workflow... This will send 4 test emails!`, 'info');
+            
+            try {
+                const response = await fetch(`${backendUrl}/api/auto-email/test-workflow`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        testEmail: testEmail
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showStatus(`✅ Complete workflow test successful! Check all email inboxes:
+                    
+                    📧 Manager: slthrmanager@gmail.com
+                    📧 TTO: slttransportofficer@gmail.com  
+                    📧 Engineer: engineerslt38@gmail.com
+                    📧 User Final: ${testEmail}
+                    
+                    All 4 test emails have been sent!`, 'success');
+                } else {
+                    showStatus(`❌ Complete workflow test failed: ${result.message}`, 'error');
+                }
+                
+            } catch (error) {
+                showStatus(`❌ Complete workflow test error: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkServiceHealth() {
+            showStatus('🔍 Checking AutoEmailService health...', 'info');
+            
+            try {
+                const response = await fetch(`${backendUrl}/api/auto-email/health`);
+                const result = await response.json();
+                
+                if (result.status === 'healthy') {
+                    showStatus(`✅ AutoEmailService is healthy and ready!
+                    
+                    Service: ${result.service}
+                    Status: ${result.status}
+                    Render Compatible: ${result.render_compatible ? '✅' : '❌'}
+                    Cloud Ready: ${result.cloud_ready ? '✅' : '❌'}`, 'success');
+                } else {
+                    showStatus(`⚠️ Service health check returned: ${result.status}`, 'warning');
+                }
+                
+            } catch (error) {
+                showStatus(`❌ Health check failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function getConfigStatus() {
+            showStatus('📋 Getting service configuration...', 'info');
+            
+            try {
+                const response = await fetch(`${backendUrl}/api/auto-email/config-status`);
+                const result = await response.json();
+                
+                showStatus(`📋 AutoEmailService Configuration:
+                
+                Service: ${result.service}
+                Status: ${result.status}
+                Email Types: ${result.emailTypes.join(', ')}
+                Features: ${result.features.join(', ')}
+                
+                Ready for production use!`, 'success');
+                
+            } catch (error) {
+                showStatus(`❌ Configuration check failed: ${error.message}`, 'error');
+            }
+        }
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = `<div class="status ${type}">${message.replace(/\n/g, '<br>')}</div>`;
+            
+            // Auto-clear non-error messages after 10 seconds
+            if (type !== 'error') {
+                setTimeout(() => {
+                    statusDiv.innerHTML = '';
+                }, 10000);
+            }
+        }
+
+        // Initialize page
+        window.onload = function() {
+            showStatus('🚀 AutoEmailService Testing Interface Ready! Pure Java backend email system designed for cloud deployment.', 'info');
+        };
+    </script>
+</body>
+</html>

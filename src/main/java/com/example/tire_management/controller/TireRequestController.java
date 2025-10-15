@@ -45,6 +45,7 @@ import com.example.tire_management.service.AzureTokenValidationService;
 import com.example.tire_management.service.EmailService;
 import com.example.tire_management.service.SendGridEmailService;
 import com.example.tire_management.service.CompleteEmailWorkflowService;
+import com.tiremanagement.service.SimpleAutoEmailService;
 
 @CrossOrigin(originPatterns = "*")
 @RestController
@@ -73,6 +74,9 @@ public class TireRequestController {
 
     @Autowired
     private com.example.tire_management.service.CompleteEmailWorkflowService completeEmailWorkflowService;
+    
+    @Autowired
+    private SimpleAutoEmailService autoEmailService;
 
     // ----------------- Common GETs -----------------
     @GetMapping
@@ -1249,8 +1253,19 @@ public class TireRequestController {
             try {
                 boolean emailSent = false;
                 
-                // Method 1: Try SendGrid first (cloud-compatible)
-                if (sendGridEmailService != null) {
+                // Method 1: Try AutoEmailService first (Pure Java, Cloud-compatible, No external deps)
+                if (autoEmailService != null) {
+                    logger.info("📧 Attempting AutoEmailService notification (Pure Java)...");
+                    emailSent = autoEmailService.sendManagerNotification(createdRequest);
+                    if (emailSent) {
+                        logger.info("✅ AutoEmailService notification successful for request: {}", createdRequest.getId());
+                    } else {
+                        logger.warn("⚠️ AutoEmailService failed, trying alternative methods...");
+                    }
+                }
+                
+                // Method 2: Try SendGrid (cloud-compatible fallback)
+                if (!emailSent && sendGridEmailService != null) {
                     logger.info("📧 Attempting SendGrid notification...");
                     emailSent = sendGridEmailService.sendManagerNotification(createdRequest);
                     if (emailSent) {
@@ -2375,8 +2390,19 @@ public class TireRequestController {
             request.setStatus("manager_approved");
             tireRequestService.updateTireRequest(request.getId(), request);
             
-            // Send TTO notification (Step 2)
-            boolean emailSent = completeEmailWorkflowService.sendTTONotification(request, approvedBy);
+            // Send TTO notification (Step 2) - Use AutoEmailService first
+            boolean emailSent = false;
+            
+            if (autoEmailService != null) {
+                logger.info("📧 Sending TTO notification via AutoEmailService...");
+                emailSent = autoEmailService.sendTTONotification(request);
+            }
+            
+            // Fallback to CompleteEmailWorkflowService if needed
+            if (!emailSent && completeEmailWorkflowService != null) {
+                logger.info("📧 Fallback to CompleteEmailWorkflowService for TTO notification...");
+                emailSent = completeEmailWorkflowService.sendTTONotification(request, approvedBy);
+            }
             
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -2412,8 +2438,19 @@ public class TireRequestController {
             request.setTtoApprovalDate(java.time.LocalDateTime.now().toString());
             tireRequestService.updateTireRequest(request.getId(), request);
             
-            // Send Engineer notification (Step 3)
-            boolean emailSent = completeEmailWorkflowService.sendEngineerNotification(request, approvedBy);
+            // Send Engineer notification (Step 3) - Use AutoEmailService first
+            boolean emailSent = false;
+            
+            if (autoEmailService != null) {
+                logger.info("📧 Sending Engineer notification via AutoEmailService...");
+                emailSent = autoEmailService.sendEngineerNotification(request);
+            }
+            
+            // Fallback to CompleteEmailWorkflowService if needed
+            if (!emailSent && completeEmailWorkflowService != null) {
+                logger.info("📧 Fallback to CompleteEmailWorkflowService for Engineer notification...");
+                emailSent = completeEmailWorkflowService.sendEngineerNotification(request, approvedBy);
+            }
             
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -2448,8 +2485,19 @@ public class TireRequestController {
             request.setStatus("approved");
             tireRequestService.updateTireRequest(request.getId(), request);
             
-            // Send User final notification (Step 4)
-            boolean emailSent = completeEmailWorkflowService.sendUserFinalNotification(request, approvedBy);
+            // Send User final notification (Step 4) - Use AutoEmailService first
+            boolean emailSent = false;
+            
+            if (autoEmailService != null) {
+                logger.info("📧 Sending User final notification via AutoEmailService...");
+                emailSent = autoEmailService.sendUserFinalNotification(request, request.getemail());
+            }
+            
+            // Fallback to CompleteEmailWorkflowService if needed
+            if (!emailSent && completeEmailWorkflowService != null) {
+                logger.info("📧 Fallback to CompleteEmailWorkflowService for User final notification...");
+                emailSent = completeEmailWorkflowService.sendUserFinalNotification(request, approvedBy);
+            }
             
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);

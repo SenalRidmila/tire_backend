@@ -14,14 +14,21 @@ class TireEmailService {
     constructor() {
         // 🔧 EmailJS Configuration - Replace with your values
         this.config = {
-            serviceId: 'service_xxxxxxx',        // Replace with your Service ID
-            templateId: 'template_xxxxxxx',      // Replace with your Template ID
-            publicKey: 'your_public_key_here'   // Replace with your Public Key
+            serviceId: 'service_xxxxxxx',        // Replace with your Service ID from EmailJS
+            publicKey: 'your_public_key_here',   // Replace with your Public Key from EmailJS
+            templates: {
+                manager: 'template_manager',        // Manager notification template
+                tto: 'template_tto',               // TTO notification template  
+                engineer: 'template_engineer',     // Engineer notification template
+                userFinal: 'template_user_final'   // User final notification template
+            }
         };
 
-        // Manager email configuration
+        // Email configuration from application.properties
         this.managerEmail = 'slthrmanager@gmail.com';
-        this.frontendUrl = 'https://tire-slt.vercel.app';
+        this.ttoEmail = 'slttransportofficer@gmail.com';
+        this.engineerEmail = 'engineerslt38@gmail.com';
+        this.frontendUrl = 'https://tire-frontend-main.vercel.app';
         
         // Initialize EmailJS
         this.initialize();
@@ -79,10 +86,10 @@ class TireEmailService {
                 subject: `🚗 New Tire Request - ${tireRequest.vehicleNo || 'Unknown Vehicle'}`
             };
 
-            // Send email via EmailJS
+            // Send email via EmailJS - Step 1: Manager notification
             const response = await emailjs.send(
                 this.config.serviceId,
-                this.config.templateId,
+                this.config.templates.manager,
                 templateParams
             );
 
@@ -144,6 +151,171 @@ class TireEmailService {
             console.error('❌ EmailJS test failed:', error);
             return false;
         }
+    }
+
+    /**
+     * Send TTO notification (Step 2)
+     * @param {Object} tireRequest - Tire request data
+     * @param {string} approvedBy - Manager who approved
+     * @returns {Promise<boolean>} - Success status
+     */
+    async sendTTONotification(tireRequest, approvedBy = 'HR Manager') {
+        try {
+            console.log('📧 Sending TTO notification for request:', tireRequest.id);
+
+            const templateParams = {
+                to_email: 'tto@slt.lk',
+                from_name: 'Tire Management System',
+                subject: `🎯 Manager Approved - TTO Review Required - ${tireRequest.vehicleNo}`,
+                vehicle_no: tireRequest.vehicleNo,
+                user_section: tireRequest.userSection,
+                tire_size: tireRequest.tireSize,
+                request_id: tireRequest.id,
+                approved_by: approvedBy,
+                approval_date: new Date().toLocaleDateString(),
+                dashboard_link: `${this.frontendUrl}/tto`
+            };
+
+            const response = await emailjs.send(
+                this.config.serviceId,
+                this.config.templates.tto,
+                templateParams
+            );
+
+            console.log('✅ TTO notification sent successfully:', response);
+            return response.status === 200;
+
+        } catch (error) {
+            console.error('❌ TTO notification failed:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Send Engineer notification (Step 3)
+     * @param {Object} tireRequest - Tire request data
+     * @param {string} approvedBy - TTO officer who approved
+     * @returns {Promise<boolean>} - Success status
+     */
+    async sendEngineerNotification(tireRequest, approvedBy = 'TTO Officer') {
+        try {
+            console.log('📧 Sending Engineer notification for request:', tireRequest.id);
+
+            const templateParams = {
+                to_email: 'engineer@slt.lk',
+                from_name: 'Tire Management System',
+                subject: `⚙️ TTO Approved - Engineering Review Required - ${tireRequest.vehicleNo}`,
+                vehicle_no: tireRequest.vehicleNo,
+                user_section: tireRequest.userSection,
+                tire_size: tireRequest.tireSize,
+                request_id: tireRequest.id,
+                approved_by: approvedBy,
+                tto_approval_date: new Date().toLocaleDateString(),
+                dashboard_link: `${this.frontendUrl}/engineer`
+            };
+
+            const response = await emailjs.send(
+                this.config.serviceId,
+                this.config.templates.engineer,
+                templateParams
+            );
+
+            console.log('✅ Engineer notification sent successfully:', response);
+            return response.status === 200;
+
+        } catch (error) {
+            console.error('❌ Engineer notification failed:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Send User final notification (Step 4)
+     * @param {Object} tireRequest - Tire request data  
+     * @param {string} approvedBy - Engineer who approved
+     * @returns {Promise<boolean>} - Success status
+     */
+    async sendUserFinalNotification(tireRequest, approvedBy = 'Engineering Team') {
+        try {
+            console.log('📧 Sending User final notification for request:', tireRequest.id);
+
+            const templateParams = {
+                to_email: tireRequest.email,
+                from_name: 'Tire Management System',
+                subject: `✅ Tire Request Approved - Order Processing - ${tireRequest.vehicleNo}`,
+                vehicle_no: tireRequest.vehicleNo,
+                user_section: tireRequest.userSection,
+                tire_size: tireRequest.tireSize,
+                request_id: tireRequest.id,
+                approved_by: approvedBy,
+                final_approval_date: new Date().toLocaleDateString(),
+                estimated_delivery: '7-10 business days',
+                dashboard_link: `${this.frontendUrl}/orders`
+            };
+
+            const response = await emailjs.send(
+                this.config.serviceId,
+                this.config.templates.userFinal,
+                templateParams
+            );
+
+            console.log('✅ User final notification sent successfully:', response);
+            return response.status === 200;
+
+        } catch (error) {
+            console.error('❌ User final notification failed:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Complete workflow test - All 4 steps
+     * @param {Object} sampleRequest - Sample tire request data
+     * @returns {Promise<Object>} - Test results
+     */
+    async testCompleteWorkflow(sampleRequest) {
+        const results = {
+            step1: false,
+            step2: false, 
+            step3: false,
+            step4: false,
+            overall: false
+        };
+
+        try {
+            console.log('🧪 Testing complete EmailJS workflow...');
+
+            // Step 1: Manager notification
+            results.step1 = await this.sendManagerNotification(sampleRequest);
+            await this.delay(2000);
+
+            // Step 2: TTO notification
+            results.step2 = await this.sendTTONotification(sampleRequest, 'Test Manager');
+            await this.delay(2000);
+
+            // Step 3: Engineer notification
+            results.step3 = await this.sendEngineerNotification(sampleRequest, 'Test TTO Officer');
+            await this.delay(2000);
+
+            // Step 4: User final notification
+            results.step4 = await this.sendUserFinalNotification(sampleRequest, 'Test Engineer');
+
+            results.overall = results.step1 && results.step2 && results.step3 && results.step4;
+            
+            console.log('🧪 Complete workflow test results:', results);
+            return results;
+
+        } catch (error) {
+            console.error('❌ Complete workflow test failed:', error);
+            return results;
+        }
+    }
+
+    /**
+     * Helper delay function
+     */
+    delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
     }
 
     /**
