@@ -1365,18 +1365,36 @@ public class TireRequestController {
             TireRequest savedRequest = tireRequestService.createTireRequest(request);
             logger.info("Tire request created successfully with ID: {}", savedRequest.getId());
             
-            // 📧 Send email notification to HR Manager
+            // 📧 Send email notification to Manager using dual email system
+            boolean emailSent = false;
             try {
-                emailService.sendNewRequestNotificationToHR(
-                    savedRequest.getemail(), 
-                    savedRequest.getVehicleNo(), 
-                    savedRequest.getUserSection(), 
-                    savedRequest.getId()
-                );
-                logger.info("✅ HR notification email sent for request: {}", savedRequest.getId());
+                // Try SendGrid first (cloud-compatible)
+                if (sendGridEmailService != null) {
+                    logger.info("📧 Attempting to send manager notification via SendGrid...");
+                    emailSent = sendGridEmailService.sendManagerNotification(savedRequest);
+                    if (emailSent) {
+                        logger.info("✅ SendGrid manager notification sent successfully for request: {}", savedRequest.getId());
+                    } else {
+                        logger.warn("⚠️ SendGrid failed, trying Gmail SMTP fallback...");
+                    }
+                }
+                
+                // Fallback to Gmail SMTP if SendGrid fails or is unavailable
+                if (!emailSent && emailService != null) {
+                    logger.info("📧 Attempting to send manager notification via Gmail SMTP...");
+                    emailSent = emailService.sendManagerNotification(savedRequest);
+                    if (emailSent) {
+                        logger.info("✅ Gmail SMTP manager notification sent successfully for request: {}", savedRequest.getId());
+                    }
+                }
+                
+                if (!emailSent) {
+                    logger.error("❌ All email services failed for request: {}", savedRequest.getId());
+                }
+                
             } catch (Exception e) {
-                logger.error("❌ Failed to send HR notification email for request: {}", savedRequest.getId(), e);
-                // Don't fail the request creation if email fails
+                logger.error("❌ Email notification error for request: {} - {}", savedRequest.getId(), e.getMessage());
+                // Don't fail the request creation if email fails - this is the key fix!
             }
             
             Map<String, Object> successResponse = new HashMap<>();

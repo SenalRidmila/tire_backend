@@ -222,7 +222,8 @@ public class TireRequestService {
 
     public TireRequest createTireRequest(TireRequest request) {
         TireRequest savedRequest = tireRequestRepository.save(request);
-        emailService.sendRequestNotification(savedRequest, managerEmail);
+        // Email notification is now handled in the controller with SendGrid + Gmail fallback
+        // emailService.sendRequestNotification(savedRequest, managerEmail);
         return savedRequest;
     }
 
