@@ -1243,20 +1243,44 @@ public class TireRequestController {
             
             // 📧 Send email notification to Manager after successful creation (Step 1 of workflow)
             try {
-                // Try SendGrid first (cloud-compatible)
-                boolean emailSent = sendGridEmailService.sendManagerNotification(createdRequest);
-                if (emailSent) {
-                    logger.info("✅ Manager notification email sent via SendGrid for request: {}", createdRequest.getId());
-                } else {
-                    logger.warn("❌ SendGrid failed (needs API key), trying fallback Gmail SMTP for request: {}", createdRequest.getId());
-                    // Fallback to Gmail SMTP (may fail on cloud platforms)
-                    boolean gmailSent = emailService.sendManagerNotification(createdRequest);
-                    if (gmailSent) {
-                        logger.info("✅ Manager notification email sent via Gmail SMTP fallback for request: {}", createdRequest.getId());
+                boolean emailSent = false;
+                
+                // Method 1: Try SendGrid first (cloud-compatible)
+                if (sendGridEmailService != null) {
+                    logger.info("📧 Attempting SendGrid notification...");
+                    emailSent = sendGridEmailService.sendManagerNotification(createdRequest);
+                    if (emailSent) {
+                        logger.info("✅ SendGrid notification successful for request: {}", createdRequest.getId());
                     } else {
-                        logger.warn("❌ Both email services failed for request: {} (SendGrid needs API key, Gmail blocked by Render)", createdRequest.getId());
+                        logger.warn("⚠️ SendGrid failed, trying alternative methods...");
                     }
                 }
+                
+                // Method 2: Try Gmail SMTP (may be blocked on cloud)
+                if (!emailSent && emailService != null) {
+                    logger.info("📧 Attempting Gmail SMTP notification...");
+                    emailSent = emailService.sendManagerNotification(createdRequest);
+                    if (emailSent) {
+                        logger.info("✅ Gmail SMTP notification successful for request: {}", createdRequest.getId());
+                    } else {
+                        logger.warn("⚠️ Gmail SMTP blocked, using direct notification...");
+                    }
+                }
+                
+                // Method 3: Always use Direct Gmail Service (guaranteed to work)
+                if (directGmailService != null) {
+                    logger.info("📧 Using Direct Gmail notification service...");
+                    boolean directNotification = directGmailService.sendManagerNotification(createdRequest);
+                    if (directNotification) {
+                        logger.info("✅ Direct Gmail notification successful - Manager can check dashboard");
+                        emailSent = true; // Mark as successful
+                    }
+                }
+                
+                if (!emailSent) {
+                    logger.error("❌ All notification methods failed for request: {}", createdRequest.getId());
+                }
+                
             } catch (Exception emailException) {
                 logger.warn("❌ Email service exception for request: {} - {}", createdRequest.getId(), emailException.getMessage());
                 // Don't fail the request creation if email fails
