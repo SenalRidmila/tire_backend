@@ -593,8 +593,9 @@ public class EmailService {
 
     /**
      * 1. Send email notification to Manager when user submits request
+     * @return true if email sent successfully, false otherwise
      */
-    public void sendManagerNotification(TireRequest request) {
+    public boolean sendManagerNotification(TireRequest request) {
         logger.info("🔄 Attempting to send manager notification email for request: {}", request.getId());
         
         try {
@@ -673,24 +674,25 @@ public class EmailService {
             mailSender.send(message);
             
             logger.info("✅ Manager notification email sent successfully for request: {}", request.getId());
+            return true;
             
         } catch (MailException e) {
             if (e.getMessage().contains("connect") || e.getMessage().contains("timeout")) {
                 logger.error("🚫 SMTP Connection failed - Gmail server unreachable for request: {}", request.getId());
                 logger.error("Connection details: Host=smtp.gmail.com, Port=465 (SSL), Error: {}", e.getMessage());
-                throw new RuntimeException("Email service unavailable - Gmail SMTP connection failed", e);
+                return false;
             } else if (e instanceof MailAuthenticationException) {
                 logger.error("🔐 Gmail Authentication failed for request: {} - Check app password", request.getId());
                 logger.error("Authentication error: {}", e.getMessage());
-                throw new RuntimeException("Email authentication failed - Check Gmail credentials", e);
+                return false;
             } else {
                 logger.error("📧 Mail service error for request: {}", request.getId(), e);
-                throw new RuntimeException("Email service error: " + e.getMessage(), e);
+                return false;
             }
         } catch (Exception e) {
             logger.error("❌ Unexpected email error for request: {} - {}", request.getId(), e.getClass().getSimpleName());
             logger.error("Full error details: {}", e.getMessage(), e);
-            throw new RuntimeException("Email sending failed: " + e.getMessage(), e);
+            return false;
         }
     }
 

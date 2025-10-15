@@ -1245,13 +1245,17 @@ public class TireRequestController {
                 if (emailSent) {
                     logger.info("✅ Manager notification email sent via SendGrid for request: {}", createdRequest.getId());
                 } else {
-                    logger.warn("❌ SendGrid failed, trying fallback Gmail SMTP for request: {}", createdRequest.getId());
+                    logger.warn("❌ SendGrid failed (needs API key), trying fallback Gmail SMTP for request: {}", createdRequest.getId());
                     // Fallback to Gmail SMTP (may fail on cloud platforms)
-                    emailService.sendManagerNotification(createdRequest);
-                    logger.info("✅ Manager notification email sent via Gmail SMTP fallback for request: {}", createdRequest.getId());
+                    boolean gmailSent = emailService.sendManagerNotification(createdRequest);
+                    if (gmailSent) {
+                        logger.info("✅ Manager notification email sent via Gmail SMTP fallback for request: {}", createdRequest.getId());
+                    } else {
+                        logger.warn("❌ Both email services failed for request: {} (SendGrid needs API key, Gmail blocked by Render)", createdRequest.getId());
+                    }
                 }
             } catch (Exception emailException) {
-                logger.warn("❌ All email services failed for request: {} - {}", createdRequest.getId(), emailException.getMessage());
+                logger.warn("❌ Email service exception for request: {} - {}", createdRequest.getId(), emailException.getMessage());
                 // Don't fail the request creation if email fails
             }
             
