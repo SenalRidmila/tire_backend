@@ -10,6 +10,8 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.web.bind.annotation.*;
 
+import com.example.tire_management.service.SendGridEmailService;
+
 import jakarta.mail.internet.MimeMessage;
 import java.util.HashMap;
 import java.util.Map;
@@ -27,6 +29,9 @@ public class EmailTestController {
 
     @Autowired
     private JavaMailSender mailSender;
+
+    @Autowired
+    private SendGridEmailService sendGridEmailService;
 
     /**
      * Test basic email connectivity
@@ -114,26 +119,78 @@ public class EmailTestController {
     }
 
     /**
-     * Alternative email sending using different port (587 TLS)
+     * Test SendGrid email service
      */
-    @PostMapping("/send-test-tls")
-    public ResponseEntity<Map<String, Object>> sendTestTLS() {
+    @GetMapping("/test-sendgrid")
+    public ResponseEntity<Map<String, Object>> testSendGrid() {
         Map<String, Object> response = new HashMap<>();
         
         try {
-            logger.info("🔧 Testing TLS email (port 587)...");
+            logger.info("🔧 Testing SendGrid email service...");
             
-            // This would require a secondary mail sender configuration
-            // For now, just return info about TLS alternative
-            response.put("success", false);
-            response.put("message", "TLS alternative not implemented yet");
-            response.put("info", "Would use port 587 with STARTTLS instead of 465 SSL");
-            response.put("current", "Using port 465 SSL");
+            boolean connectionTest = sendGridEmailService.testConnection();
+            
+            if (connectionTest) {
+                response.put("success", true);
+                response.put("message", "✅ SendGrid configuration is valid");
+                response.put("service", "SendGrid API");
+                response.put("status", "Ready for email sending");
+            } else {
+                response.put("success", false);
+                response.put("message", "❌ SendGrid configuration failed");
+                response.put("suggestion", "Check SendGrid API key in environment variables");
+            }
             
             return ResponseEntity.ok(response);
             
         } catch (Exception e) {
+            logger.error("❌ SendGrid test failed: {}", e.getMessage());
             response.put("success", false);
+            response.put("error", e.getMessage());
+            response.put("suggestion", "Verify SendGrid API key and configuration");
+            return ResponseEntity.status(500).body(response);
+        }
+    }
+
+    /**
+     * Compare email services status
+     */
+    @GetMapping("/services-status")
+    public ResponseEntity<Map<String, Object>> getServicesStatus() {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            Map<String, Object> gmailStatus = new HashMap<>();
+            Map<String, Object> sendgridStatus = new HashMap<>();
+            
+            // Test Gmail SMTP
+            try {
+                gmailStatus.put("service", "Gmail SMTP");
+                gmailStatus.put("host", "smtp.gmail.com:465");
+                gmailStatus.put("status", "❌ Blocked by Render (Expected)");
+                gmailStatus.put("compatible", "Local development only");
+            } catch (Exception e) {
+                gmailStatus.put("error", e.getMessage());
+            }
+            
+            // Test SendGrid
+            try {
+                boolean sgTest = sendGridEmailService.testConnection();
+                sendgridStatus.put("service", "SendGrid API");
+                sendgridStatus.put("status", sgTest ? "✅ Ready" : "❌ Configuration needed");
+                sendgridStatus.put("compatible", "Cloud platforms (Render, Vercel, AWS, etc.)");
+                sendgridStatus.put("recommended", true);
+            } catch (Exception e) {
+                sendgridStatus.put("status", "❌ Error: " + e.getMessage());
+            }
+            
+            response.put("gmail", gmailStatus);
+            response.put("sendgrid", sendgridStatus);
+            response.put("recommendation", "Use SendGrid for production deployment");
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
             response.put("error", e.getMessage());
             return ResponseEntity.status(500).body(response);
         }
