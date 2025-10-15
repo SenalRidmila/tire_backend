@@ -63,8 +63,24 @@ public class FileController {
                         .body(resource);
             } else {
                 System.out.println("❌ FileController: File not found locally: " + file.getAbsolutePath());
+                System.out.println("🔄 FileController: Serving demo image fallback for: " + filename);
                 
-                // Return 404 with helpful error message
+                // Serve a demo image fallback from resources
+                String demoImage = getDemoImageForFilename(filename);
+                try {
+                    Resource demoResource = new org.springframework.core.io.ClassPathResource("static/images/" + demoImage);
+                    if (demoResource.exists()) {
+                        System.out.println("✅ FileController: Serving demo image: " + demoImage);
+                        return ResponseEntity.ok()
+                                .contentType(MediaType.IMAGE_JPEG)
+                                .header(HttpHeaders.CACHE_CONTROL, "public, max-age=3600")
+                                .body(demoResource);
+                    }
+                } catch (Exception demoEx) {
+                    System.out.println("❌ FileController: Demo image also failed: " + demoEx.getMessage());
+                }
+                
+                // Final fallback - return 404
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(null);
             }
@@ -83,6 +99,27 @@ public class FileController {
             return ""; // No extension found
         }
         return filename.substring(lastIndexOfDot + 1);
+    }
+    
+    /**
+     * Get demo image filename based on the requested filename
+     */
+    private String getDemoImageForFilename(String filename) {
+        String lowerFilename = filename.toLowerCase();
+        
+        // Try to match with tire-related keywords
+        if (lowerFilename.contains("tire1") || lowerFilename.contains("front")) {
+            return "tire1.jpeg";
+        } else if (lowerFilename.contains("tire2") || lowerFilename.contains("rear")) {
+            return "tire2.jpeg";
+        } else if (lowerFilename.contains("tire3") || lowerFilename.contains("side")) {
+            return "tire3.jpeg";
+        } else {
+            // Default fallback - cycle through demo images based on hash
+            int hash = Math.abs(filename.hashCode());
+            String[] demoImages = {"tire1.jpeg", "tire2.jpeg", "tire3.jpeg"};
+            return demoImages[hash % demoImages.length];
+        }
     }
     
     @GetMapping("/health")
