@@ -6,6 +6,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ByteArrayResource;
+import org.springframework.mail.MailAuthenticationException;
+import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -591,13 +593,20 @@ public class EmailService {
 
     /**
      * 1. Send email notification to Manager when user submits request
+     * @return true if email sent successfully, false otherwise
      */
-    public void sendManagerNotification(TireRequest request) {
+    public boolean sendManagerNotification(TireRequest request) {
+        logger.info("🔄 Attempting to send manager notification email for request: {}", request.getId());
+        
         try {
+            // Test mail sender connection first
+            logger.info("📧 Testing email server connection to smtp.gmail.com...");
+            
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
             
             helper.setTo("slthrmanager@gmail.com");
+            helper.setFrom("slthrmanager@gmail.com"); // Explicitly set from address
             helper.setSubject("🚗 New Tire Request Awaiting Approval - " + request.getVehicleNo());
             
             String managerDashboardLink = "https://tire-slt.vercel.app/manager";
@@ -660,12 +669,30 @@ public class EmailService {
                 managerDashboardLink);
             
             helper.setText(htmlContent, true);
+            
+            logger.info("📤 Sending email to manager: slthrmanager@gmail.com");
             mailSender.send(message);
             
-            logger.info("✅ Manager notification email sent for request: {}", request.getId());
+            logger.info("✅ Manager notification email sent successfully for request: {}", request.getId());
+            return true;
             
+        } catch (MailException e) {
+            if (e.getMessage().contains("connect") || e.getMessage().contains("timeout")) {
+                logger.error("🚫 SMTP Connection failed - Gmail server unreachable for request: {}", request.getId());
+                logger.error("Connection details: Host=smtp.gmail.com, Port=465 (SSL), Error: {}", e.getMessage());
+                return false;
+            } else if (e instanceof MailAuthenticationException) {
+                logger.error("🔐 Gmail Authentication failed for request: {} - Check app password", request.getId());
+                logger.error("Authentication error: {}", e.getMessage());
+                return false;
+            } else {
+                logger.error("📧 Mail service error for request: {}", request.getId(), e);
+                return false;
+            }
         } catch (Exception e) {
-            logger.error("❌ Failed to send manager notification email for request: {}", request.getId(), e);
+            logger.error("❌ Unexpected email error for request: {} - {}", request.getId(), e.getClass().getSimpleName());
+            logger.error("Full error details: {}", e.getMessage(), e);
+            return false;
         }
     }
 

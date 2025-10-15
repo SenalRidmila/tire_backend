@@ -43,6 +43,7 @@ import com.example.tire_management.service.TireRequestService;
 import com.example.tire_management.service.TireRequestValidationService;
 import com.example.tire_management.service.AzureTokenValidationService;
 import com.example.tire_management.service.EmailService;
+import com.example.tire_management.service.SendGridEmailService;
 
 @CrossOrigin(originPatterns = "*")
 @RestController
@@ -62,6 +63,9 @@ public class TireRequestController {
     
     @Autowired
     private EmailService emailService;
+    
+    @Autowired
+    private SendGridEmailService sendGridEmailService;
 
     // ----------------- Common GETs -----------------
     @GetMapping
@@ -1236,10 +1240,22 @@ public class TireRequestController {
             
             // 📧 Send email notification to Manager after successful creation (Step 1 of workflow)
             try {
-                emailService.sendManagerNotification(createdRequest);
-                logger.info("✅ Manager notification email sent for new request: {}", createdRequest.getId());
+                // Try SendGrid first (cloud-compatible)
+                boolean emailSent = sendGridEmailService.sendManagerNotification(createdRequest);
+                if (emailSent) {
+                    logger.info("✅ Manager notification email sent via SendGrid for request: {}", createdRequest.getId());
+                } else {
+                    logger.warn("❌ SendGrid failed (needs API key), trying fallback Gmail SMTP for request: {}", createdRequest.getId());
+                    // Fallback to Gmail SMTP (may fail on cloud platforms)
+                    boolean gmailSent = emailService.sendManagerNotification(createdRequest);
+                    if (gmailSent) {
+                        logger.info("✅ Manager notification email sent via Gmail SMTP fallback for request: {}", createdRequest.getId());
+                    } else {
+                        logger.warn("❌ Both email services failed for request: {} (SendGrid needs API key, Gmail blocked by Render)", createdRequest.getId());
+                    }
+                }
             } catch (Exception emailException) {
-                logger.warn("❌ Failed to send manager notification email: {}", emailException.getMessage());
+                logger.warn("❌ Email service exception for request: {} - {}", createdRequest.getId(), emailException.getMessage());
                 // Don't fail the request creation if email fails
             }
             
