@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="si">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📧 EmailJS Service - Tire Management Alternative</title>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 700px;
+            margin: 20px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);
+            color: white;
+        }
+        .container {
+            background: rgba(255,255,255,0.15);
+            padding: 30px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        .btn {
+            background: #00b894;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            margin: 10px 5px;
+            transition: all 0.3s ease;
+        }
+        .btn:hover { 
+            background: #00a085;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .status {
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .success { background: rgba(0, 184, 148, 0.3); }
+        .error { background: rgba(231, 76, 60, 0.3); }
+        .info { background: rgba(116, 185, 255, 0.3); }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .feature-card {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .config-section {
+            background: rgba(0,0,0,0.2);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📧 EmailJS - SendGrid Alternative</h1>
+        <p><strong>Free email service with 200 emails/month!</strong></p>
+        
+        <div id="status" class="status info">
+            🚀 EmailJS ready for testing...
+        </div>
+        
+        <div style="text-align: center; margin: 20px 0;">
+            <button class="btn" onclick="testEmailJS()">
+                📧 Test EmailJS
+            </button>
+            <button class="btn" onclick="sendTireRequestNotification()">
+                🎯 Send Manager Alert
+            </button>
+        </div>
+
+        <div class="feature-grid">
+            <div class="feature-card">
+                <h3>🆓 Free Plan</h3>
+                <p>200 emails per month<br>Perfect for tire requests!</p>
+            </div>
+            <div class="feature-card">
+                <h3>🔧 Easy Setup</h3>
+                <p>5 minutes configuration<br>No backend needed!</p>
+            </div>
+            <div class="feature-card">
+                <h3>📧 Multiple Providers</h3>
+                <p>Gmail, Outlook, Yahoo<br>All supported!</p>
+            </div>
+            <div class="feature-card">
+                <h3>🛡️ Secure</h3>
+                <p>API keys protected<br>HTTPS encryption</p>
+            </div>
+        </div>
+
+        <h3>🔧 EmailJS Setup Guide:</h3>
+        <ol style="font-size: 16px; line-height: 1.8;">
+            <li><strong>Account:</strong> <a href="https://emailjs.com" style="color: #ffeaa7;">https://emailjs.com</a> වල account එකක් හදන්න</li>
+            <li><strong>Service:</strong> Gmail service එක connect කරන්න</li>
+            <li><strong>Template:</strong> Email template එකක් create කරන්න</li>
+            <li><strong>Integration:</strong> Frontend code එකේ integrate කරන්න</li>
+        </ol>
+
+        <div class="config-section">
+            <h4>📋 Sample EmailJS Configuration:</h4>
+            <pre style="color: #a8e6cf;">
+// EmailJS Configuration
+const emailConfig = {
+    serviceID: 'service_xxxxxxx',
+    templateID: 'template_xxxxxxx', 
+    publicKey: 'your_public_key_here'
+};
+
+// Send Email Function
+emailjs.send(
+    emailConfig.serviceID,
+    emailConfig.templateID,
+    templateParams,
+    emailConfig.publicKey
+);
+            </pre>
+        </div>
+
+        <h3>📊 EmailJS vs SendGrid Comparison:</h3>
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+            <tr style="background: rgba(255,255,255,0.1);">
+                <th style="padding: 15px; text-align: left;">Feature</th>
+                <th style="padding: 15px; text-align: left;">EmailJS</th>
+                <th style="padding: 15px; text-align: left;">SendGrid</th>
+            </tr>
+            <tr>
+                <td style="padding: 10px;">🆓 Free Plan</td>
+                <td style="padding: 10px;">✅ 200/month</td>
+                <td style="padding: 10px;">✅ 100/day</td>
+            </tr>
+            <tr style="background: rgba(255,255,255,0.05);">
+                <td style="padding: 10px;">🔧 Setup</td>
+                <td style="padding: 10px;">✅ Very Easy</td>
+                <td style="padding: 10px;">⚠️ Complex</td>
+            </tr>
+            <tr>
+                <td style="padding: 10px;">🛡️ Verification</td>
+                <td style="padding: 10px;">✅ No Sender ID needed</td>
+                <td style="padding: 10px;">❌ Requires verification</td>
+            </tr>
+            <tr style="background: rgba(255,255,255,0.05);">
+                <td style="padding: 10px;">⚡ Speed</td>
+                <td style="padding: 10px;">✅ Instant</td>
+                <td style="padding: 10px;">✅ Fast</td>
+            </tr>
+        </table>
+
+        <div style="background: rgba(46, 204, 113, 0.2); padding: 20px; border-radius: 10px; margin: 20px 0;">
+            <h3>🎯 Recommended Solution:</h3>
+            <p><strong>EmailJS</strong> is perfect for tire management system because:</p>
+            <ul>
+                <li>✅ No sender verification headaches</li>
+                <li>✅ 200 emails/month is enough for tire requests</li>
+                <li>✅ Works immediately after setup</li>
+                <li>✅ Frontend-only integration</li>
+                <li>✅ Free forever plan available</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Initialize EmailJS
+        emailjs.init("YOUR_PUBLIC_KEY_HERE"); // Replace with your EmailJS public key
+
+        function testEmailJS() {
+            document.getElementById('status').innerHTML = '📤 Testing EmailJS connection...';
+            document.getElementById('status').className = 'status info';
+
+            const templateParams = {
+                to_email: 'slthrmanager@gmail.com',
+                from_name: 'Tire Management System',
+                subject: '🧪 EmailJS Test - Alternative to SendGrid',
+                message: `
+                🚗 Tire Management System EmailJS Test
+                
+                ✅ EmailJS is working perfectly!
+                📅 Test conducted at: ${new Date().toLocaleString()}
+                🎯 This replaces SendGrid successfully!
+                
+                Features:
+                - No sender verification needed
+                - 200 free emails per month  
+                - Instant delivery
+                - Easy frontend integration
+                
+                Ready for production use! 🎉
+                `
+            };
+
+            emailjs.send('service_xxxxxxx', 'template_xxxxxxx', templateParams)
+                .then(function(response) {
+                    document.getElementById('status').innerHTML = '✅ EmailJS test successful! Check manager email.';
+                    document.getElementById('status').className = 'status success';
+                    console.log('EmailJS Success:', response.status, response.text);
+                }, function(error) {
+                    document.getElementById('status').innerHTML = '❌ EmailJS configuration needed. Check console for details.';
+                    document.getElementById('status').className = 'status error';
+                    console.log('EmailJS Error:', error);
+                });
+        }
+
+        function sendTireRequestNotification() {
+            document.getElementById('status').innerHTML = '📧 Sending tire request notification...';
+            document.getElementById('status').className = 'status info';
+
+            const tireRequest = {
+                id: 'EMAILJS-TEST-' + Date.now(),
+                vehicleNo: 'EMAILJS-001',
+                userSection: 'IT Department', 
+                tireSize: '205/55R16',
+                requestDate: new Date().toLocaleDateString(),
+                requestTime: new Date().toLocaleTimeString()
+            };
+
+            const templateParams = {
+                to_email: 'slthrmanager@gmail.com',
+                from_name: 'Tire Management System',
+                subject: `🚗 New Tire Request - ${tireRequest.vehicleNo}`,
+                vehicle_no: tireRequest.vehicleNo,
+                user_section: tireRequest.userSection,
+                tire_size: tireRequest.tireSize,
+                request_date: tireRequest.requestDate,
+                request_time: tireRequest.requestTime,
+                request_id: tireRequest.id,
+                dashboard_link: 'https://tire-slt.vercel.app/manager'
+            };
+
+            emailjs.send('service_xxxxxxx', 'template_xxxxxxx', templateParams)
+                .then(function(response) {
+                    document.getElementById('status').innerHTML = '✅ Manager notification sent via EmailJS! 🎯';
+                    document.getElementById('status').className = 'status success';
+                }, function(error) {
+                    document.getElementById('status').innerHTML = '❌ Setup EmailJS first. Visit emailjs.com for configuration.';
+                    document.getElementById('status').className = 'status error';
+                });
+        }
+    </script>
+</body>
+</html>

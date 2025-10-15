@@ -44,6 +44,7 @@ import com.example.tire_management.service.TireRequestValidationService;
 import com.example.tire_management.service.AzureTokenValidationService;
 import com.example.tire_management.service.EmailService;
 import com.example.tire_management.service.SendGridEmailService;
+import com.example.tire_management.service.CompleteEmailWorkflowService;
 
 @CrossOrigin(originPatterns = "*")
 @RestController
@@ -69,6 +70,9 @@ public class TireRequestController {
     
     @Autowired
     private com.example.tire_management.service.DirectGmailService directGmailService;
+
+    @Autowired
+    private com.example.tire_management.service.CompleteEmailWorkflowService completeEmailWorkflowService;
 
     // ----------------- Common GETs -----------------
     @GetMapping
@@ -1277,6 +1281,16 @@ public class TireRequestController {
                     }
                 }
                 
+                // Method 4: Use Complete Workflow Service (Step 1)
+                if (completeEmailWorkflowService != null) {
+                    logger.info("🔄 Starting complete email workflow - Step 1: User → Manager");
+                    boolean workflowStarted = completeEmailWorkflowService.sendManagerNotification(createdRequest);
+                    if (workflowStarted) {
+                        logger.info("✅ Email workflow started successfully - Manager dashboard notification sent");
+                        emailSent = true; // Mark as successful
+                    }
+                }
+                
                 if (!emailSent) {
                     logger.error("❌ All notification methods failed for request: {}", createdRequest.getId());
                 }
@@ -2338,6 +2352,147 @@ public class TireRequestController {
             );
         }
     }
+
+    // ----------------- Email Workflow Endpoints -----------------
+
+    /**
+     * Manager approval endpoint - Step 2 of workflow
+     */
+    @PostMapping("/{id}/manager-approve")
+    public ResponseEntity<?> managerApprove(@PathVariable String id, @RequestBody Map<String, String> approvalData) {
+        try {
+            logger.info("📝 Manager approval for request: {}", id);
+            
+            Optional<TireRequest> requestOpt = tireRequestService.getTireRequestById(id);
+            if (requestOpt.isEmpty()) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            TireRequest request = requestOpt.get();
+            String approvedBy = approvalData.getOrDefault("approvedBy", "HR Manager");
+            
+            // Update request status
+            request.setStatus("manager_approved");
+            tireRequestService.updateTireRequest(request.getId(), request);
+            
+            // Send TTO notification (Step 2)
+            boolean emailSent = completeEmailWorkflowService.sendTTONotification(request, approvedBy);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Manager approved - TTO notification sent");
+            response.put("emailSent", emailSent);
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            logger.error("❌ Manager approval failed for request: {}", id, e);
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * TTO approval endpoint - Step 3 of workflow
+     */
+    @PostMapping("/{id}/tto-approve")
+    public ResponseEntity<?> ttoApprove(@PathVariable String id, @RequestBody Map<String, String> approvalData) {
+        try {
+            logger.info("🔧 TTO approval for request: {}", id);
+            
+            Optional<TireRequest> requestOpt = tireRequestService.getTireRequestById(id);
+            if (requestOpt.isEmpty()) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            TireRequest request = requestOpt.get();
+            String approvedBy = approvalData.getOrDefault("approvedBy", "TTO Officer");
+            
+            // Update request status and TTO details
+            request.setStatus("tto_approved");
+            request.setTtoApprovalDate(java.time.LocalDateTime.now().toString());
+            tireRequestService.updateTireRequest(request.getId(), request);
+            
+            // Send Engineer notification (Step 3)
+            boolean emailSent = completeEmailWorkflowService.sendEngineerNotification(request, approvedBy);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "TTO approved - Engineer notification sent");
+            response.put("emailSent", emailSent);
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            logger.error("❌ TTO approval failed for request: {}", id, e);
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Engineer approval endpoint - Step 4 of workflow
+     */
+    @PostMapping("/{id}/engineer-approve")
+    public ResponseEntity<?> engineerApprove(@PathVariable String id, @RequestBody Map<String, String> approvalData) {
+        try {
+            logger.info("⚙️ Engineer approval for request: {}", id);
+            
+            Optional<TireRequest> requestOpt = tireRequestService.getTireRequestById(id);
+            if (requestOpt.isEmpty()) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            TireRequest request = requestOpt.get();
+            String approvedBy = approvalData.getOrDefault("approvedBy", "Engineering Team");
+            
+            // Update request status to final approved
+            request.setStatus("approved");
+            tireRequestService.updateTireRequest(request.getId(), request);
+            
+            // Send User final notification (Step 4)
+            boolean emailSent = completeEmailWorkflowService.sendUserFinalNotification(request, approvedBy);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Engineer approved - User final notification sent");
+            response.put("emailSent", emailSent);
+            response.put("finalStatus", "FULLY_APPROVED");
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            logger.error("❌ Engineer approval failed for request: {}", id, e);
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Get requests by status for different dashboards
+     */
+    @GetMapping("/status/{status}")
+    public ResponseEntity<?> getRequestsByStatus(@PathVariable String status) {
+        try {
+            logger.info("🔍 Fetching requests with status: {}", status);
+            
+            List<TireRequest> requests = tireRequestService.getAllTireRequests()
+                .stream()
+                .filter(req -> status.equals(req.getStatus()))
+                .collect(java.util.stream.Collectors.toList());
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("data", requests);
+            response.put("count", requests.size());
+            response.put("status", status);
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            logger.error("❌ Failed to fetch requests by status: {}", status, e);
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // ----------------- Helper Methods -----------------
 
     /**
      * Helper method to get employee profile

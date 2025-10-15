@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="si">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚗 EmailJS Integration - Tire Management</title>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            line-height: 1.6;
+        }
+        .container {
+            background: rgba(255,255,255,0.1);
+            padding: 30px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        .step {
+            background: rgba(255,255,255,0.05);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 5px solid #00b894;
+        }
+        .code-block {
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+        .btn {
+            background: #00b894;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn:hover { background: #00a085; }
+        .config-form {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .form-group {
+            margin: 15px 0;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 5px;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            font-size: 14px;
+        }
+        .form-group input::placeholder {
+            color: rgba(255,255,255,0.7);
+        }
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+        .success { background: rgba(0, 184, 148, 0.3); }
+        .error { background: rgba(231, 76, 60, 0.3); }
+        .info { background: rgba(116, 185, 255, 0.3); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📧 EmailJS Integration Guide</h1>
+        <p><strong>SendGrid replacement සඳහා EmailJS setup කරමු!</strong></p>
+
+        <div class="step">
+            <h3>📝 Step 1: EmailJS Account Setup</h3>
+            <ol>
+                <li><a href="https://emailjs.com" target="_blank" style="color: #ffeaa7;">https://emailjs.com</a> වල account එකක් හදන්න</li>
+                <li><strong>"Email Services"</strong> වල Gmail service එක add කරන්න</li>
+                <li><strong>"Email Templates"</strong> වල template එකක් create කරන්න</li>
+                <li><strong>"Integration"</strong> වල Public Key එක copy කරන්න</li>
+            </ol>
+        </div>
+
+        <div class="step">
+            <h3>🔧 Step 2: Configuration</h3>
+            <p>EmailJS account එකේ මේ details තියෙනවද check කරන්න:</p>
+            
+            <div class="config-form">
+                <div class="form-group">
+                    <label>Service ID:</label>
+                    <input type="text" id="serviceId" placeholder="service_xxxxxxx" />
+                </div>
+                <div class="form-group">
+                    <label>Template ID:</label>
+                    <input type="text" id="templateId" placeholder="template_xxxxxxx" />
+                </div>
+                <div class="form-group">
+                    <label>Public Key:</label>
+                    <input type="text" id="publicKey" placeholder="your_public_key_here" />
+                </div>
+                <button class="btn" onclick="saveConfig()">💾 Save Configuration</button>
+                <button class="btn" onclick="testEmailJS()">📧 Test Email</button>
+            </div>
+        </div>
+
+        <div id="status" class="status info">
+            🚀 Configuration වල values enter කරලා test කරන්න...
+        </div>
+
+        <div class="step">
+            <h3>📨 Step 3: Email Template (EmailJS වල create කරන්න)</h3>
+            <div class="code-block">
+Subject: 🚗 New Tire Request - {{vehicle_no}}
+
+Hello Manager,
+
+New tire request received:
+
+🚗 Vehicle: {{vehicle_no}}
+🏢 Section: {{user_section}}  
+🛞 Size: {{tire_size}}
+📅 Date: {{request_date}}
+🆔 ID: {{request_id}}
+
+Dashboard: {{dashboard_link}}
+
+Best regards,
+Tire Management System
+            </div>
+        </div>
+
+        <div class="step">
+            <h3>💻 Step 4: Frontend Integration Code</h3>
+            <p>RequestForm.js එකේ මේ code එක add කරන්න:</p>
+            
+            <div class="code-block">
+// EmailJS configuration
+const EMAILJS_CONFIG = {
+    serviceId: 'service_xxxxxxx',    // ඔබගේ Service ID
+    templateId: 'template_xxxxxxx',  // ඔබගේ Template ID  
+    publicKey: 'your_public_key'     // ඔබගේ Public Key
+};
+
+// Initialize EmailJS
+emailjs.init(EMAILJS_CONFIG.publicKey);
+
+// Email sending function
+const sendManagerNotification = async (tireRequestData) => {
+    try {
+        const templateParams = {
+            to_email: 'slthrmanager@gmail.com',
+            vehicle_no: tireRequestData.vehicleNo,
+            user_section: tireRequestData.userSection,
+            tire_size: tireRequestData.tireSize,
+            request_date: new Date().toLocaleDateString(),
+            request_id: tireRequestData.id,
+            dashboard_link: 'https://tire-slt.vercel.app/manager'
+        };
+
+        const result = await emailjs.send(
+            EMAILJS_CONFIG.serviceId,
+            EMAILJS_CONFIG.templateId,
+            templateParams
+        );
+        
+        console.log('✅ Email sent successfully:', result);
+        return true;
+    } catch (error) {
+        console.error('❌ Email failed:', error);
+        return false;
+    }
+};
+
+// Form submit එකේ call කරන්න
+handleSubmit = async (formData) => {
+    // ... existing form submission code ...
+    
+    // After successful backend submission:
+    const emailSent = await sendManagerNotification(submittedData);
+    if (emailSent) {
+        alert('✅ Tire request submitted and manager notified!');
+    }
+};
+            </div>
+        </div>
+
+        <div class="step">
+            <h3>🔗 Step 5: HTML Head Section</h3>
+            <p>index.html එකේ head එකේ මේක add කරන්න:</p>
+            
+            <div class="code-block">
+&lt;script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"&gt;&lt;/script&gt;
+            </div>
+        </div>
+
+        <div class="step">
+            <h3>✅ Benefits of EmailJS</h3>
+            <ul>
+                <li>🆓 <strong>Free:</strong> 200 emails per month</li>
+                <li>⚡ <strong>Fast:</strong> Instant email delivery</li>
+                <li>🚫 <strong>No Verification:</strong> SendGrid වගේ sender identity issues නෑ</li>
+                <li>🔧 <strong>Easy Setup:</strong> 5 minutes හින්දා ready</li>
+                <li>🌐 <strong>Frontend Only:</strong> Backend changes නෑ</li>
+                <li>📧 <strong>Multiple Providers:</strong> Gmail, Outlook, Yahoo support</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // EmailJS configuration storage
+        let emailConfig = {
+            serviceId: '',
+            templateId: '', 
+            publicKey: ''
+        };
+
+        function saveConfig() {
+            emailConfig.serviceId = document.getElementById('serviceId').value;
+            emailConfig.templateId = document.getElementById('templateId').value;
+            emailConfig.publicKey = document.getElementById('publicKey').value;
+
+            if (emailConfig.serviceId && emailConfig.templateId && emailConfig.publicKey) {
+                // Initialize EmailJS with the public key
+                emailjs.init(emailConfig.publicKey);
+                
+                document.getElementById('status').innerHTML = '✅ Configuration saved! Ready for testing.';
+                document.getElementById('status').className = 'status success';
+            } else {
+                document.getElementById('status').innerHTML = '❌ Please fill all configuration fields.';
+                document.getElementById('status').className = 'status error';
+            }
+        }
+
+        function testEmailJS() {
+            if (!emailConfig.serviceId || !emailConfig.templateId || !emailConfig.publicKey) {
+                document.getElementById('status').innerHTML = '❌ Please save configuration first!';
+                document.getElementById('status').className = 'status error';
+                return;
+            }
+
+            document.getElementById('status').innerHTML = '📤 Testing EmailJS... Please wait.';
+            document.getElementById('status').className = 'status info';
+
+            const templateParams = {
+                to_email: 'slthrmanager@gmail.com',
+                vehicle_no: 'EMAILJS-TEST-001',
+                user_section: 'IT Department',
+                tire_size: '205/55R16',
+                request_date: new Date().toLocaleDateString(),
+                request_id: 'TEST-' + Date.now(),
+                dashboard_link: 'https://tire-slt.vercel.app/manager'
+            };
+
+            emailjs.send(emailConfig.serviceId, emailConfig.templateId, templateParams)
+                .then(function(response) {
+                    document.getElementById('status').innerHTML = '🎉 EmailJS test successful! Check manager email inbox.';
+                    document.getElementById('status').className = 'status success';
+                    console.log('EmailJS SUCCESS:', response.status, response.text);
+                }, function(error) {
+                    document.getElementById('status').innerHTML = '❌ EmailJS test failed. Check configuration and console for details.';
+                    document.getElementById('status').className = 'status error';
+                    console.log('EmailJS FAILED:', error);
+                });
+        }
+    </script>
+</body>
+</html>

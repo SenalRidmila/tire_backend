@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="si">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚗 SMTP.js Email Test - Tire Management</title>
+    <script src="https://smtpjs.com/v3/smtp.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container {
+            background: rgba(255,255,255,0.1);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        .btn {
+            background: #28a745;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        .btn:hover { background: #218838; }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .success { background: rgba(40, 167, 69, 0.3); }
+        .error { background: rgba(220, 53, 69, 0.3); }
+        .info { background: rgba(23, 162, 184, 0.3); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚗 SMTP.js Email Testing</h1>
+        <p><strong>SendGrid නැතුව Direct Email Service!</strong></p>
+        
+        <div id="status" class="status info">
+            📧 Ready to send email notifications...
+        </div>
+        
+        <button class="btn" onclick="sendTestEmail()">
+            📧 Test Email කරන්න
+        </button>
+        
+        <button class="btn" onclick="sendManagerNotification()">
+            🎯 Manager Notification යවන්න
+        </button>
+
+        <h3>📋 SMTP.js Features:</h3>
+        <ul>
+            <li>✅ කිසිම backend configuration එකක් නෑ</li>
+            <li>✅ Direct Gmail/Outlook integration</li>
+            <li>✅ Real-time email delivery</li>
+            <li>✅ Secure & encrypted</li>
+            <li>✅ Free service</li>
+        </ul>
+
+        <h3>🔧 Setup Instructions:</h3>
+        <ol>
+            <li>SMTP.js account එකක් හදන්න: <a href="https://smtpjs.com" style="color: #ffc107;">https://smtpjs.com</a></li>
+            <li>Gmail credentials configure කරන්න</li>
+            <li>Security token එක generate කරන්න</li>
+            <li>Frontend code එකේ integrate කරන්න</li>
+        </ol>
+    </div>
+
+    <script>
+        function sendTestEmail() {
+            document.getElementById('status').innerHTML = '📤 Sending test email...';
+            document.getElementById('status').className = 'status info';
+
+            Email.send({
+                SecureToken : "YOUR_SMTP_JS_TOKEN_HERE", // SMTP.js token එක මෙහේ දාන්න
+                To : 'slthrmanager@gmail.com',
+                From : "tire-system@company.com",
+                Subject : "🧪 Test Email from Tire Management System",
+                Body : `
+                <h2>🚗 Tire Management System - Test Email</h2>
+                <p><strong>This is a test email from SMTP.js service!</strong></p>
+                <p>📅 Sent at: ${new Date().toLocaleString()}</p>
+                <p>✅ SMTP.js is working properly!</p>
+                <p>🎯 No backend configuration needed!</p>
+                <hr>
+                <p style="color: #666;">Tire Management System | SLT</p>
+                `
+            }).then(
+                message => {
+                    document.getElementById('status').innerHTML = '✅ Test email sent successfully! Check manager inbox.';
+                    document.getElementById('status').className = 'status success';
+                }
+            ).catch(
+                error => {
+                    document.getElementById('status').innerHTML = '❌ Failed to send email. Check SMTP.js configuration.';
+                    document.getElementById('status').className = 'status error';
+                    console.error('Email error:', error);
+                }
+            );
+        }
+
+        function sendManagerNotification() {
+            document.getElementById('status').innerHTML = '📧 Sending manager notification...';
+            document.getElementById('status').className = 'status info';
+
+            // Sample tire request data
+            const tireRequest = {
+                id: 'TEST-' + Date.now(),
+                vehicleNo: 'TEST-001',
+                userSection: 'IT Department',
+                tireSize: '205/55R16',
+                requestDate: new Date().toLocaleDateString()
+            };
+
+            Email.send({
+                SecureToken : "YOUR_SMTP_JS_TOKEN_HERE", // SMTP.js token එක මෙහේ දාන්න
+                To : 'slthrmanager@gmail.com',
+                From : "tire-system@company.com",
+                Subject : `🚗 New Tire Request - ${tireRequest.vehicleNo}`,
+                Body : `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h2 style="color: #28a745;">🚗 New Tire Request Received</h2>
+                    
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                        <h3>📋 Request Details:</h3>
+                        <p><strong>🚗 Vehicle Number:</strong> ${tireRequest.vehicleNo}</p>
+                        <p><strong>🏢 Section:</strong> ${tireRequest.userSection}</p>
+                        <p><strong>🛞 Tire Size:</strong> ${tireRequest.tireSize}</p>
+                        <p><strong>📅 Request Date:</strong> ${tireRequest.requestDate}</p>
+                        <p><strong>🆔 Request ID:</strong> ${tireRequest.id}</p>
+                    </div>
+                    
+                    <div style="background: #e3f2fd; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                        <h3>🎯 Next Steps:</h3>
+                        <p>✅ Review the tire request</p>
+                        <p>✅ Check vehicle condition</p>
+                        <p>✅ Process approval/rejection</p>
+                    </div>
+                    
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="https://tire-slt.vercel.app/manager" 
+                           style="background: #28a745; color: white; padding: 12px 24px; 
+                                  text-decoration: none; border-radius: 8px; font-weight: bold;">
+                            🎯 View Dashboard
+                        </a>
+                    </div>
+                    
+                    <hr>
+                    <p style="color: #666; font-size: 14px;">
+                        📧 Sent via SMTP.js | 🚗 Tire Management System | SLT
+                    </p>
+                </div>
+                `
+            }).then(
+                message => {
+                    document.getElementById('status').innerHTML = '✅ Manager notification sent successfully!';
+                    document.getElementById('status').className = 'status success';
+                }
+            ).catch(
+                error => {
+                    document.getElementById('status').innerHTML = '❌ Failed to send notification. Check configuration.';
+                    document.getElementById('status').className = 'status error';
+                    console.error('Email error:', error);
+                }
+            );
+        }
+    </script>
+</body>
+</html>
