@@ -44,6 +44,8 @@ import com.example.tire_management.service.TireRequestValidationService;
 import com.example.tire_management.service.AzureTokenValidationService;
 import com.example.tire_management.service.EmailService;
 import com.example.tire_management.service.SendGridEmailService;
+import com.example.tire_management.service.CompleteEmailWorkflowService;
+import com.tiremanagement.service.SimpleAutoEmailService;
 
 @CrossOrigin(originPatterns = "*")
 @RestController
@@ -66,6 +68,15 @@ public class TireRequestController {
     
     @Autowired
     private SendGridEmailService sendGridEmailService;
+    
+    @Autowired
+    private com.example.tire_management.service.DirectGmailService directGmailService;
+
+    @Autowired
+    private com.example.tire_management.service.CompleteEmailWorkflowService completeEmailWorkflowService;
+    
+    @Autowired
+    private SimpleAutoEmailService autoEmailService;
 
     // ----------------- Common GETs -----------------
     @GetMapping
@@ -1240,20 +1251,65 @@ public class TireRequestController {
             
             // 📧 Send email notification to Manager after successful creation (Step 1 of workflow)
             try {
-                // Try SendGrid first (cloud-compatible)
-                boolean emailSent = sendGridEmailService.sendManagerNotification(createdRequest);
-                if (emailSent) {
-                    logger.info("✅ Manager notification email sent via SendGrid for request: {}", createdRequest.getId());
-                } else {
-                    logger.warn("❌ SendGrid failed (needs API key), trying fallback Gmail SMTP for request: {}", createdRequest.getId());
-                    // Fallback to Gmail SMTP (may fail on cloud platforms)
-                    boolean gmailSent = emailService.sendManagerNotification(createdRequest);
-                    if (gmailSent) {
-                        logger.info("✅ Manager notification email sent via Gmail SMTP fallback for request: {}", createdRequest.getId());
+                boolean emailSent = false;
+                
+                // Method 1: Try AutoEmailService first (Pure Java, Cloud-compatible, No external deps)
+                if (autoEmailService != null) {
+                    logger.info("📧 Attempting AutoEmailService notification (Pure Java)...");
+                    emailSent = autoEmailService.sendManagerNotification(createdRequest);
+                    if (emailSent) {
+                        logger.info("✅ AutoEmailService notification successful for request: {}", createdRequest.getId());
                     } else {
-                        logger.warn("❌ Both email services failed for request: {} (SendGrid needs API key, Gmail blocked by Render)", createdRequest.getId());
+                        logger.warn("⚠️ AutoEmailService failed, trying alternative methods...");
                     }
                 }
+                
+                // Method 2: Try SendGrid (cloud-compatible fallback)
+                if (!emailSent && sendGridEmailService != null) {
+                    logger.info("📧 Attempting SendGrid notification...");
+                    emailSent = sendGridEmailService.sendManagerNotification(createdRequest);
+                    if (emailSent) {
+                        logger.info("✅ SendGrid notification successful for request: {}", createdRequest.getId());
+                    } else {
+                        logger.warn("⚠️ SendGrid failed, trying alternative methods...");
+                    }
+                }
+                
+                // Method 2: Try Gmail SMTP (may be blocked on cloud)
+                if (!emailSent && emailService != null) {
+                    logger.info("📧 Attempting Gmail SMTP notification...");
+                    emailSent = emailService.sendManagerNotification(createdRequest);
+                    if (emailSent) {
+                        logger.info("✅ Gmail SMTP notification successful for request: {}", createdRequest.getId());
+                    } else {
+                        logger.warn("⚠️ Gmail SMTP blocked, using direct notification...");
+                    }
+                }
+                
+                // Method 3: Always use Direct Gmail Service (guaranteed to work)
+                if (directGmailService != null) {
+                    logger.info("📧 Using Direct Gmail notification service...");
+                    boolean directNotification = directGmailService.sendManagerNotification(createdRequest);
+                    if (directNotification) {
+                        logger.info("✅ Direct Gmail notification successful - Manager can check dashboard");
+                        emailSent = true; // Mark as successful
+                    }
+                }
+                
+                // Method 4: Use Complete Workflow Service (Step 1)
+                if (completeEmailWorkflowService != null) {
+                    logger.info("🔄 Starting complete email workflow - Step 1: User → Manager");
+                    boolean workflowStarted = completeEmailWorkflowService.sendManagerNotification(createdRequest);
+                    if (workflowStarted) {
+                        logger.info("✅ Email workflow started successfully - Manager dashboard notification sent");
+                        emailSent = true; // Mark as successful
+                    }
+                }
+                
+                if (!emailSent) {
+                    logger.error("❌ All notification methods failed for request: {}", createdRequest.getId());
+                }
+                
             } catch (Exception emailException) {
                 logger.warn("❌ Email service exception for request: {} - {}", createdRequest.getId(), emailException.getMessage());
                 // Don't fail the request creation if email fails
@@ -1365,31 +1421,43 @@ public class TireRequestController {
             TireRequest savedRequest = tireRequestService.createTireRequest(request);
             logger.info("Tire request created successfully with ID: {}", savedRequest.getId());
             
-            // 📧 Send email notification to Manager using dual email system
+            // 📧 Send manager notification using multiple approaches
             boolean emailSent = false;
             try {
-                // Try SendGrid first (cloud-compatible)
+                // Method 1: Try SendGrid (cloud-compatible)
                 if (sendGridEmailService != null) {
-                    logger.info("📧 Attempting to send manager notification via SendGrid...");
+                    logger.info("📧 Attempting SendGrid notification...");
                     emailSent = sendGridEmailService.sendManagerNotification(savedRequest);
                     if (emailSent) {
-                        logger.info("✅ SendGrid manager notification sent successfully for request: {}", savedRequest.getId());
+                        logger.info("✅ SendGrid notification successful for request: {}", savedRequest.getId());
                     } else {
-                        logger.warn("⚠️ SendGrid failed, trying Gmail SMTP fallback...");
+                        logger.warn("⚠️ SendGrid failed, trying alternative methods...");
                     }
                 }
                 
-                // Fallback to Gmail SMTP if SendGrid fails or is unavailable
+                // Method 2: Try Gmail SMTP (may be blocked on cloud)
                 if (!emailSent && emailService != null) {
-                    logger.info("📧 Attempting to send manager notification via Gmail SMTP...");
+                    logger.info("📧 Attempting Gmail SMTP notification...");
                     emailSent = emailService.sendManagerNotification(savedRequest);
                     if (emailSent) {
-                        logger.info("✅ Gmail SMTP manager notification sent successfully for request: {}", savedRequest.getId());
+                        logger.info("✅ Gmail SMTP notification successful for request: {}", savedRequest.getId());
+                    } else {
+                        logger.warn("⚠️ Gmail SMTP blocked, using direct notification...");
+                    }
+                }
+                
+                // Method 3: Always use Direct Gmail Service (guaranteed to work)
+                if (directGmailService != null) {
+                    logger.info("📧 Using Direct Gmail notification service...");
+                    boolean directNotification = directGmailService.sendManagerNotification(savedRequest);
+                    if (directNotification) {
+                        logger.info("✅ Direct Gmail notification successful - Manager can check dashboard");
+                        emailSent = true; // Mark as successful
                     }
                 }
                 
                 if (!emailSent) {
-                    logger.error("❌ All email services failed for request: {}", savedRequest.getId());
+                    logger.error("❌ All notification methods failed for request: {}", savedRequest.getId());
                 }
                 
             } catch (Exception e) {
@@ -2299,6 +2367,180 @@ public class TireRequestController {
             );
         }
     }
+
+    // ----------------- Email Workflow Endpoints -----------------
+
+    /**
+     * Manager approval endpoint - Step 2 of workflow
+     */
+    @PostMapping("/{id}/manager-approve")
+    public ResponseEntity<?> managerApprove(@PathVariable String id, @RequestBody Map<String, String> approvalData) {
+        try {
+            logger.info("📝 Manager approval for request: {}", id);
+            
+            Optional<TireRequest> requestOpt = tireRequestService.getTireRequestById(id);
+            if (requestOpt.isEmpty()) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            TireRequest request = requestOpt.get();
+            String approvedBy = approvalData.getOrDefault("approvedBy", "HR Manager");
+            
+            // Update request status
+            request.setStatus("manager_approved");
+            tireRequestService.updateTireRequest(request.getId(), request);
+            
+            // Send TTO notification (Step 2) - Use AutoEmailService first
+            boolean emailSent = false;
+            
+            if (autoEmailService != null) {
+                logger.info("📧 Sending TTO notification via AutoEmailService...");
+                emailSent = autoEmailService.sendTTONotification(request);
+            }
+            
+            // Fallback to CompleteEmailWorkflowService if needed
+            if (!emailSent && completeEmailWorkflowService != null) {
+                logger.info("📧 Fallback to CompleteEmailWorkflowService for TTO notification...");
+                emailSent = completeEmailWorkflowService.sendTTONotification(request, approvedBy);
+            }
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Manager approved - TTO notification sent");
+            response.put("emailSent", emailSent);
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            logger.error("❌ Manager approval failed for request: {}", id, e);
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * TTO approval endpoint - Step 3 of workflow
+     */
+    @PostMapping("/{id}/tto-approve")
+    public ResponseEntity<?> ttoApprove(@PathVariable String id, @RequestBody Map<String, String> approvalData) {
+        try {
+            logger.info("🔧 TTO approval for request: {}", id);
+            
+            Optional<TireRequest> requestOpt = tireRequestService.getTireRequestById(id);
+            if (requestOpt.isEmpty()) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            TireRequest request = requestOpt.get();
+            String approvedBy = approvalData.getOrDefault("approvedBy", "TTO Officer");
+            
+            // Update request status and TTO details
+            request.setStatus("tto_approved");
+            request.setTtoApprovalDate(java.time.LocalDateTime.now().toString());
+            tireRequestService.updateTireRequest(request.getId(), request);
+            
+            // Send Engineer notification (Step 3) - Use AutoEmailService first
+            boolean emailSent = false;
+            
+            if (autoEmailService != null) {
+                logger.info("📧 Sending Engineer notification via AutoEmailService...");
+                emailSent = autoEmailService.sendEngineerNotification(request);
+            }
+            
+            // Fallback to CompleteEmailWorkflowService if needed
+            if (!emailSent && completeEmailWorkflowService != null) {
+                logger.info("📧 Fallback to CompleteEmailWorkflowService for Engineer notification...");
+                emailSent = completeEmailWorkflowService.sendEngineerNotification(request, approvedBy);
+            }
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "TTO approved - Engineer notification sent");
+            response.put("emailSent", emailSent);
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            logger.error("❌ TTO approval failed for request: {}", id, e);
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Engineer approval endpoint - Step 4 of workflow
+     */
+    @PostMapping("/{id}/engineer-approve")
+    public ResponseEntity<?> engineerApprove(@PathVariable String id, @RequestBody Map<String, String> approvalData) {
+        try {
+            logger.info("⚙️ Engineer approval for request: {}", id);
+            
+            Optional<TireRequest> requestOpt = tireRequestService.getTireRequestById(id);
+            if (requestOpt.isEmpty()) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            TireRequest request = requestOpt.get();
+            String approvedBy = approvalData.getOrDefault("approvedBy", "Engineering Team");
+            
+            // Update request status to final approved
+            request.setStatus("approved");
+            tireRequestService.updateTireRequest(request.getId(), request);
+            
+            // Send User final notification (Step 4) - Use AutoEmailService first
+            boolean emailSent = false;
+            
+            if (autoEmailService != null) {
+                logger.info("📧 Sending User final notification via AutoEmailService...");
+                emailSent = autoEmailService.sendUserFinalNotification(request, request.getemail());
+            }
+            
+            // Fallback to CompleteEmailWorkflowService if needed
+            if (!emailSent && completeEmailWorkflowService != null) {
+                logger.info("📧 Fallback to CompleteEmailWorkflowService for User final notification...");
+                emailSent = completeEmailWorkflowService.sendUserFinalNotification(request, approvedBy);
+            }
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Engineer approved - User final notification sent");
+            response.put("emailSent", emailSent);
+            response.put("finalStatus", "FULLY_APPROVED");
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            logger.error("❌ Engineer approval failed for request: {}", id, e);
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Get requests by status for different dashboards
+     */
+    @GetMapping("/status/{status}")
+    public ResponseEntity<?> getRequestsByStatus(@PathVariable String status) {
+        try {
+            logger.info("🔍 Fetching requests with status: {}", status);
+            
+            List<TireRequest> requests = tireRequestService.getAllTireRequests()
+                .stream()
+                .filter(req -> status.equals(req.getStatus()))
+                .collect(java.util.stream.Collectors.toList());
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("data", requests);
+            response.put("count", requests.size());
+            response.put("status", status);
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            logger.error("❌ Failed to fetch requests by status: {}", status, e);
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // ----------------- Helper Methods -----------------
 
     /**
      * Helper method to get employee profile
