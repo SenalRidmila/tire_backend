@@ -1665,47 +1665,7 @@ public class TireRequestController {
         }
     }
 
-    @PostMapping("/{id}/tto-approve")
-    public ResponseEntity<Map<String, Object>> approveTireRequestByTTO(@PathVariable String id) {
-        try {
-            TireRequest approvedRequest = tireRequestService.approveTireRequestByTTO(id);
-            
-            // 📧 Send email notification to Engineer (Step 3 of workflow)
-            try {
-                emailService.sendEngineerNotification(approvedRequest);
-                logger.info("✅ Engineer notification email sent after TTO approval for request: {}", id);
-            } catch (Exception e) {
-                logger.error("❌ Failed to send Engineer notification email for request: {}", approvedRequest.getId(), e);
-                // Don't fail the approval if email fails
-            }
-            
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("message", "Request approved by TTO and Engineer has been notified");
-            response.put("request", approvedRequest);
-            response.put("status", approvedRequest.getStatus());
-            response.put("ttoApprovalDate", approvedRequest.getTtoApprovalDate());
-            response.put("nextStep", "Engineer Review");
-            response.put("engineerNotified", true);
-            
-            logger.info("TTO approved request {} successfully, engineer notification sent", id);
-            return ResponseEntity.ok(response);
-        } catch (RuntimeException e) {
-            logger.error("Error in TTO approval for request {}: {}", id, e.getMessage());
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("success", false);
-            errorResponse.put("message", "Failed to approve request: " + e.getMessage());
-            errorResponse.put("error", true);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
-        } catch (Exception e) {
-            logger.error("Unexpected error in TTO approval for request {}: {}", id, e.getMessage());
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("success", false);
-            errorResponse.put("message", "Internal server error during approval");
-            errorResponse.put("error", true);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
-        }
-    }
+    
 
     @PostMapping("/{id}/tto-reject")
     public ResponseEntity<Map<String, Object>> rejectTireRequestByTTO(
@@ -1750,35 +1710,7 @@ public class TireRequestController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
     }
-    @PostMapping("/{id}/engineer-approve")
-    public ResponseEntity<String> engineerApprove(@PathVariable String id) {
-        try {
-            // Get the request details before approving
-            Optional<TireRequest> optionalRequest = tireRequestService.getTireRequestById(id);
-            if (!optionalRequest.isPresent()) {
-                return ResponseEntity.notFound().build();
-            }
-            
-            TireRequest request = optionalRequest.get();
-            
-            // Approve the request
-            tireRequestService.approveByEngineer(id);
-            
-            // 📧 Send confirmation email to User (Step 4 of workflow)
-            try {
-                emailService.sendUserApprovalConfirmation(request);
-                logger.info("✅ User approval confirmation email sent after engineer approval for request: {}", id); 
-            } catch (Exception e) {
-                logger.error("❌ Failed to send User confirmation email for request: {}", request.getId(), e);
-                // Don't fail the approval if email fails
-            }
-            
-            return ResponseEntity.ok("Request fully approved! User has been notified and can now proceed to tire ordering.");
-        } catch (Exception e) {
-            logger.error("Error in engineer approval for request {}: {}", id, e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error processing approval");
-        }
-    }
+    
 
     @PostMapping("/{id}/engineer-reject")
     public ResponseEntity<?> engineerReject(@PathVariable String id) {
